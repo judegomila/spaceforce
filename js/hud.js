@@ -59,6 +59,8 @@ export class Hud {
     $('r-eta').textContent = fmt(sim.eta, 4);
     $('r-delta').textContent = fmt(sim.delta, 4);
     $('r-alpha').textContent = fmt(sim.alpha * 180 / Math.PI, 2) + '°';
+    const zNow = sim.mode === 'ROLL' ? sim.z : (sim.flight ? sim.flight.z : sim.z);
+    $('r-z').textContent = (zNow >= 0 ? '+' : '') + fmt(zNow * 1000, 1) + ' mm';
     $('r-omega').textContent = fmt(sim.omega * 60 / (2 * Math.PI), 0) + ' rpm';
     $('r-mass').textContent = fmt(1 + P.kappa / (sim.delta * sim.delta), 2) + ' ×m';
     $('r-gamma').textContent = (sim.Gamma >= 0 ? '+' : '') + fmt(sim.Gamma, 4);
@@ -78,6 +80,7 @@ export class Hud {
     chip.textContent = sim.mode === 'ROLL'
       ? (sim.pulse ? 'M1 · PULSE' : sim.slip ? 'M2 · MICROSLIP' : sim.autopilot ? 'M1 · AUTOPILOT' : 'M1 · ROLLING')
       : sim.mode === 'FLIGHT' ? 'M4 · FREE FLIGHT'
+      : sim.mode === 'BOARD' ? 'M5 · DECK ROLL'
       : sim.mode === 'SINK' ? 'M5 · CAPTURE'
       : 'STANDBY';
     chip.className = 'mode ' + (sim.mode === 'ROLL' ? (sim.slip ? 'warn' : 'ok') : 'hot');

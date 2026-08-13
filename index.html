@@ -45,6 +45,7 @@
     <label>POSITION x</label><span class="val" id="r-x">—</span>
     <label>SPEED v</label><span class="val" id="r-v">—</span>
     <label>OPENING α</label><span class="val" id="r-alpha">—</span>
+    <label>LATERAL z</label><span class="val" id="r-z">—</span>
     <label>SEPARATION η</label><span class="val" id="r-eta">—</span>
     <label>MARGIN δ</label><span class="val" id="r-delta">—</span>
     <label>SPIN ω</label><span class="val" id="r-omega">—</span>
@@ -84,9 +85,13 @@
 <section class="panel" id="controls">
   <h2>CONTROL AUTHORITY</h2>
   <div class="btnrow">
-    <button id="btn-close" class="hold">◀ CLOSE <kbd>A</kbd></button>
-    <button id="btn-open" class="hold">OPEN ▶ <kbd>D</kbd></button>
+    <button id="btn-close" class="hold">◀ CLOSE <kbd>←</kbd></button>
+    <button id="btn-open" class="hold">OPEN ▶ <kbd>→</kbd></button>
     <button id="btn-pulse" class="fire">PULSE <kbd>SPACE</kbd></button>
+  </div>
+  <div class="btnrow" style="margin-top:6px">
+    <button id="btn-left" class="hold">◀ ARMS <kbd>A</kbd></button>
+    <button id="btn-right" class="hold">ARMS ▶ <kbd>D</kbd></button>
   </div>
   <div class="sliders">
     <label>PULSE AMPL <b id="pulse-amp-v"></b></label>

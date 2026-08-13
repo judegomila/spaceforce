@@ -45,8 +45,10 @@ const keys = new Set();
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const k = e.key.toLowerCase();
-  if (k === 'd' || k === 'arrowright') { keys.add('open'); e.preventDefault(); }
-  if (k === 'a' || k === 'arrowleft') { keys.add('close'); e.preventDefault(); }
+  if (k === 'arrowright' || k === 'arrowup') { keys.add('open'); e.preventDefault(); }
+  if (k === 'arrowleft' || k === 'arrowdown') { keys.add('close'); e.preventDefault(); }
+  if (k === 'd') keys.add('right');
+  if (k === 'a') keys.add('left');
   if (k === ' ') { firePulse(); e.preventDefault(); }
   if (k === 't') toggleAutopilot();
   if (k === 'n') toggleNoise();
@@ -55,12 +57,16 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
-  if (k === 'd' || k === 'arrowright') keys.delete('open');
-  if (k === 'a' || k === 'arrowleft') keys.delete('close');
+  if (k === 'arrowright' || k === 'arrowup') keys.delete('open');
+  if (k === 'arrowleft' || k === 'arrowdown') keys.delete('close');
+  if (k === 'd') keys.delete('right');
+  if (k === 'a') keys.delete('left');
   updateRate();
 });
 function updateRate() {
   sim.setManualRate((keys.has('open') ? 1 : 0) - (keys.has('close') ? 1 : 0));
+  // from the default camera, screen-right is −z in the rail frame
+  sim.setManualShift((keys.has('left') ? 1 : 0) - (keys.has('right') ? 1 : 0));
 }
 
 // touch / click buttons
@@ -75,6 +81,8 @@ function holdButton(id, dir) {
 }
 holdButton('btn-close', 'close');
 holdButton('btn-open', 'open');
+holdButton('btn-left', 'left');
+holdButton('btn-right', 'right');
 $('btn-pulse').addEventListener('click', firePulse);
 $('ap-toggle').addEventListener('click', () => toggleAutopilot());
 $('noise-toggle').addEventListener('click', toggleNoise);

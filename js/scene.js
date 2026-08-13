@@ -102,6 +102,10 @@ export class Stage {
       color: 0xd9dee4, metalness: 1.0, roughness: 0.14, envMapIntensity: 1.25,
     });
 
+    // arm assembly: rods + hinge, translatable laterally (A/D)
+    this.arms = new THREE.Group();
+    this.rig.add(this.arms);
+
     // rods, hinged at x = 0, half-opening angle α about the normal axis
     const railLen = P.L + 0.02;
     const rodGeo = new THREE.CylinderGeometry(P.r, P.r, railLen, 24);
@@ -119,7 +123,7 @@ export class Stage {
       knob.position.set(railLen, 0, 0);
       knob.castShadow = true;
       grp.add(knob);
-      this.rig.add(grp);
+      this.arms.add(grp);
     }
 
     // hinge block
@@ -127,7 +131,7 @@ export class Stage {
     const hinge = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.013, 0.036, 24), hingeMat);
     hinge.position.set(-0.004, -0.012, 0);
     hinge.castShadow = true;
-    this.rig.add(hinge);
+    this.arms.add(hinge);
 
     // scoring deck
     this.boardCanvas = document.createElement('canvas');
@@ -277,9 +281,10 @@ export class Stage {
   update(sim, time) {
     this.rodP.rotation.y = -sim.alpha;
     this.rodM.rotation.y = +sim.alpha;
+    this.arms.position.z = sim.z;
 
     if (sim.mode === 'ROLL') {
-      this.ball.position.set(sim.x, P.a * sim.delta, 0);
+      this.ball.position.set(sim.x, P.a * sim.delta, sim.z);
     } else if (sim.flight) {
       this.ball.position.set(sim.flight.x, sim.flight.y, sim.flight.z);
     }
@@ -289,7 +294,7 @@ export class Stage {
     const showRing = sim.mode === 'ROLL' && xPred < P.L;
     this.ring.visible = showRing;
     if (showRing) {
-      this.ring.position.set(xPred, 0.002, 0);
+      this.ring.position.set(xPred, 0.002, sim.z);
       this.ring.material.opacity = 0.3 + 0.25 * Math.sin(time * 5);
     }
 

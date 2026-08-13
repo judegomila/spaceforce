@@ -19,6 +19,7 @@ The simulation core (`js/physics.js`) is a direct implementation of the paper's 
 | Eq. 5.3 — no-slip feasibility `‖F_t‖ ≤ μₛN` | traction cap + microslip mode M2 |
 | Eq. 7.4–7.6 — compliance closure `η = η_c + Λη/δ`, fold at `δ* = Λ^{1/3}` | `solveEta()` — fixed-point divergence **is** the snap-through release |
 | Eq. 8.2 — free flight after release | `stepFlight()` (modes M4/M5) |
+| §8 hybrid modes — a missed drop rolls on the wood deck | `stepBoard()` — incline gravity + rolling resistance; a slow ball still drops into a cup it crosses, a fast one skips the rim and can roll back down to the tray |
 | Eq. 5.4–5.7, 8.3 — admissibility guards `G_geom, G_fold, G_N, G_μ, G_ω` | live guard bars in the HUD |
 | Eq. 6.4 — finite open–close pulse `α(t) = α₀ + A·f((t−t_p)/τ_p)` | `triggerPulse()` (Gaussian, high-authority per Prop. 10.1) |
 | Eq. 9.5–9.6 — hit probability `p_hit(v) = erf(Δx / 2√2·√(σₓ²+v²σ_t²))` | `pHit()` — live risk readout |
@@ -29,8 +30,9 @@ The **Mₐα̇v** term is what makes pulsing work: closing the rails while the b
 
 | Input | Action |
 |---|---|
-| `D` / `→` (hold) | Open rails |
-| `A` / `←` (hold) | Close rails |
+| `→` / `↑` (hold) | Open rails |
+| `←` / `↓` (hold) | Close rails |
+| `A` / `D` (hold) | Translate the lever-arm assembly left / right — cups sit on the centerline, so aim laterally before release |
 | `SPACE` | Fire an open–close pulse (amplitude & width sliders) |
 | `T` | Autopilot: boundary-ride at η_ref — the paper's risk dial. Higher η_ref = faster, closer to release |
 | `N` | Timing noise: adds Gaussian actuation jitter (σ_t) |

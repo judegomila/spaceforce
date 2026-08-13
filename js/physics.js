@@ -35,6 +35,14 @@ export const P = {
   alpha0: 0.6 * DEG,
   alphaRateMax: 4.5 * DEG,   // rad/s rate limit; pulses get extra authority
 
+  // lateral arm translation (rod-center offset)
+  zMax: 0.025,        // max lateral offset of the rail assembly [m]
+  zRateMax: 0.04,     // m/s lateral slew rate
+
+  // wood deck rolling (after a missed drop)
+  mu_wood: 0.02,      // rolling resistance on the deck
+  boardCaptureV: 0.06, // above this speed a rolling ball skips across a cup rim
+
   // dissipation & contact
   mu_r: 0.002,        // rolling resistance coefficient
   c1: 0.01, c2: 0.06,
@@ -119,6 +127,9 @@ export class Sim {
     this.alpha = P.alpha0;
     this.alphaDot = 0;
     this.manualRate = 0;
+    this.z = 0;
+    this.zDot = 0;
+    this.manualShift = 0;
     this.pulse = null;
     this.pulsePending = null;
     this.flight = null;
@@ -172,6 +183,8 @@ export class Sim {
 
   setManualRate(r) { this.manualRate = r; }
 
+  setManualShift(r) { this.manualShift = r; }
+
   selectedHole() { return P.holes[this.targetIndex]; }
 
   pHitNow() {
@@ -190,6 +203,8 @@ export class Sim {
         this.stepRoll(dt);
       } else if (this.mode === 'FLIGHT' || this.mode === 'SINK') {
         this.stepFlight(dt);
+      } else if (this.mode === 'BOARD') {
+        this.stepBoard(dt);
       }
       this._traceT += dt;
       if (this._traceT > 0.02) {
@@ -240,6 +255,12 @@ export class Sim {
     const next = clamp(this.alpha + rate * dt, P.alphaMin, P.alphaMax);
     if (next === P.alphaMin || next === P.alphaMax) this.alphaDot = 0;
     this.alpha = next;
+
+    // lateral translation of the rail assembly
+    this.zDot = this.manualShift * P.zRateMax;
+    const zNext = clamp(this.z + this.zDot * dt, -P.zMax, P.zMax);
+    if (zNext === -P.zMax || zNext === P.zMax) this.zDot = 0;
+    this.z = zNext;
   }
 
   stepRoll(dt) {
@@ -295,10 +316,28 @@ export class Sim {
     this.cause = cause;
     this.mode = 'FLIGHT';
     this.flight = {
-      x: this.x, y: P.a * this.delta, z: 0,
-      vx: this.v, vy: 0,
+      x: this.x, y: P.a * this.delta, z: this.z,
+      vx: this.v, vy: 0, vz: this.zDot,
       spin: this.omega,
     };
+  }
+
+  capturedBy(f) {
+    return P.holes.find(h => {
+      const dx = f.x - h.x, dz = f.z;
+      return dx * dx + dz * dz < h.cap * h.cap;
+    });
+  }
+
+  capture(h) {
+    const f = this.flight;
+    this.mode = 'SINK';
+    this.result = { score: h.score, label: h.label };
+    f.x = h.x; f.z = 0; f.vx = 0; f.vz = 0;
+  }
+
+  offDeck(f) {
+    return f.x > P.boardLen - 0.06 || f.x < 0 || Math.abs(f.z) > P.boardW / 2 - 0.012;
   }
 
   stepFlight(dt) {
@@ -308,6 +347,7 @@ export class Sim {
     f.vy += -P.g * cosB * dt;
     f.x += f.vx * dt;
     f.y += f.vy * dt;
+    f.z += f.vz * dt;
     f.spin *= Math.pow(0.5, dt / 0.8);
     this.spinAngle += f.spin * dt;
 
@@ -318,19 +358,46 @@ export class Sim {
 
     const yRest = -P.dropH + P.R;
     if (f.vy < 0 && f.y <= yRest) {
-      const h = P.holes.find(h => Math.abs(f.x - h.x) < h.cap);
-      if (h) {
-        this.mode = 'SINK';
-        this.result = { score: h.score, label: h.label };
-        f.x = h.x; f.vx = 0; // captured by the cup
-        return;
-      }
-      if (f.x > P.boardLen - 0.06 || f.x < 0) return this.finish(0, 'TRAY');
+      const h = this.capturedBy(f);
+      if (h) return this.capture(h);
+      if (this.offDeck(f)) return this.finish(0, 'TRAY');
       f.y = yRest;
       f.vy = -f.vy * 0.32;
       f.vx *= 0.55;
-      if (Math.abs(f.vy) < 0.06) { f.vy = 0; this.finish(0, 'MISS'); }
+      f.vz *= 0.7;
+      if (Math.abs(f.vy) < 0.06) { f.vy = 0; this.mode = 'BOARD'; }
     }
+  }
+
+  // rolling on the wood deck: gravity along the incline + rolling resistance,
+  // opposing the velocity direction. A slow ball drops into a cup it crosses;
+  // a fast one skips over the rim.
+  stepBoard(dt) {
+    const f = this.flight;
+    const cosB = Math.cos(P.beta), sinB = Math.sin(P.beta);
+    const sp = Math.hypot(f.vx, f.vz);
+
+    let ax = -P.g * sinB;
+    let az = 0;
+    if (sp > 1e-4) {
+      const fr = P.mu_wood * P.g * cosB;
+      ax += -fr * f.vx / sp;
+      az += -fr * f.vz / sp;
+    }
+    f.vx += ax * dt;
+    f.vz += az * dt;
+    f.x += f.vx * dt;
+    f.z += f.vz * dt;
+    this.spinAngle += (f.vx / P.R) * dt;
+    this.omega = Math.abs(f.vx) / P.R;
+
+    if (sp < P.boardCaptureV) {
+      const h = this.capturedBy(f);
+      if (h) { f.vy = 0; return this.capture(h); }
+    }
+    if (this.offDeck(f)) return this.finish(0, 'TRAY');
+    // rolling resistance can hold the ball only if it beats the slope
+    if (sp < 0.008 && P.mu_wood >= Math.tan(P.beta)) return this.finish(0, 'MISS');
   }
 
   finish(score, label) {
