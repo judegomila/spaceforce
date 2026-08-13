@@ -1,0 +1,10 @@
+{
+  "name": "spaceforce",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "3D simulator of the Space Force / Shoot-the-Moon two-rail ball game (risk-optimal pulsed control)",
+  "scripts": {
+    "dev": "npx serve ."
+  }
+}
