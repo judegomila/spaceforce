@@ -41,7 +41,6 @@ export const P = {
 
   // wood deck rolling (after a missed drop)
   mu_wood: 0.02,      // rolling resistance on the deck
-  boardCaptureV: 0.06, // above this speed a rolling ball skips across a cup rim
 
   // dissipation & contact
   mu_r: 0.002,        // rolling resistance coefficient
@@ -370,8 +369,8 @@ export class Sim {
   }
 
   // rolling on the wood deck: gravity along the incline + rolling resistance,
-  // opposing the velocity direction. A slow ball drops into a cup it crosses;
-  // a fast one skips over the rim.
+  // opposing the velocity direction. The ball drops into the first hole it
+  // rolls over.
   stepBoard(dt) {
     const f = this.flight;
     const cosB = Math.cos(P.beta), sinB = Math.sin(P.beta);
@@ -391,10 +390,8 @@ export class Sim {
     this.spinAngle += (f.vx / P.R) * dt;
     this.omega = Math.abs(f.vx) / P.R;
 
-    if (sp < P.boardCaptureV) {
-      const h = this.capturedBy(f);
-      if (h) { f.vy = 0; return this.capture(h); }
-    }
+    const h = this.capturedBy(f);
+    if (h) { f.vy = 0; return this.capture(h); }
     if (this.offDeck(f)) return this.finish(0, 'TRAY');
     // rolling resistance can hold the ball only if it beats the slope
     if (sp < 0.008 && P.mu_wood >= Math.tan(P.beta)) return this.finish(0, 'MISS');

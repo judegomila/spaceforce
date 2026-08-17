@@ -19,7 +19,7 @@ The simulation core (`js/physics.js`) is a direct implementation of the paper's 
 | Eq. 5.3 — no-slip feasibility `‖F_t‖ ≤ μₛN` | traction cap + microslip mode M2 |
 | Eq. 7.4–7.6 — compliance closure `η = η_c + Λη/δ`, fold at `δ* = Λ^{1/3}` | `solveEta()` — fixed-point divergence **is** the snap-through release |
 | Eq. 8.2 — free flight after release | `stepFlight()` (modes M4/M5) |
-| §8 hybrid modes — a missed drop rolls on the wood deck | `stepBoard()` — incline gravity + rolling resistance; a slow ball still drops into a cup it crosses, a fast one skips the rim and can roll back down to the tray |
+| §8 hybrid modes — a missed drop rolls on the wood deck | `stepBoard()` — incline gravity + rolling resistance; the ball drops into the first hole it rolls over, or rolls back down the incline to the tray |
 | Eq. 5.4–5.7, 8.3 — admissibility guards `G_geom, G_fold, G_N, G_μ, G_ω` | live guard bars in the HUD |
 | Eq. 6.4 — finite open–close pulse `α(t) = α₀ + A·f((t−t_p)/τ_p)` | `triggerPulse()` (Gaussian, high-authority per Prop. 10.1) |
 | Eq. 9.5–9.6 — hit probability `p_hit(v) = erf(Δx / 2√2·√(σₓ²+v²σ_t²))` | `pHit()` — live risk readout |
