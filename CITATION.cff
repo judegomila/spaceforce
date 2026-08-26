@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "Please cite this work using the metadata below."
+title: "A Mathematical Framework for Kluster: Friction-Pinned Magnetic Rigid Bodies, Hybrid Instabilities, Moving Boundaries, and Sequential Strategy"
+type: article
+authors:
+  - family-names: Gomila
+    given-names: Jude
+version: 1.0.0
+date-released: 2026-08-26
+abstract: >-
+  A theoretical and computational framework for Kluster combining permanent-magnet interaction,
+  frictional contact, hybrid rigid-body dynamics, moving-boundary control, and sequential game theory.
+keywords:
+  - magnetic dipoles
+  - dry friction
+  - rigid-body contact
+  - hybrid systems
+  - reach-avoid control
+  - stochastic games
