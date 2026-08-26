@@ -1,0 +1,61 @@
+name: Apply Space Force v2 update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .spaceforce-update.part00
+      - .spaceforce-update.part01
+      - .spaceforce-update.part02
+      - .spaceforce-update.part03
+      - .spaceforce-update.part04
+      - .github/workflows/apply-spaceforce-update.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apply-spaceforce-v2
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify and unpack update payload
+        run: |
+          cat .spaceforce-update.part* | base64 --decode > /tmp/spaceforce-update.tar.gz
+          echo "d194ad4c5924f3247f8413a078b47597f7cfe21ee2684e854aef4f5acbfa4b9e  /tmp/spaceforce-update.tar.gz" | sha256sum --check --strict
+          tar -xzf /tmp/spaceforce-update.tar.gz
+
+      - name: Validate JavaScript model
+        run: |
+          npm run check
+          npm run test:physics
+
+      - name: Compile complete mechanics paper
+        uses: xu-cheng/latex-action@v4
+        with:
+          root_file: paper.tex
+          texlive_version: 2026
+          args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
+
+      - name: Verify generated paper
+        run: test -s paper.pdf
+
+      - name: Commit application, source, and rebuilt PDF
+        run: |
+          rm -f .spaceforce-update.part*
+          rm -f .github/workflows/apply-spaceforce-update.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add independent rod twist and complete mechanics paper"
+          git push
