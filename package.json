@@ -1,6 +1,6 @@
 {
   "name": "spaceforce",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "type": "module",
   "description": "3D simulator of the Space Force / Shoot-the-Moon game with compliant hybrid mechanics, independent rod twist and risk-optimal pulsed control",

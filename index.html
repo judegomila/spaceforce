@@ -49,7 +49,7 @@
     <label>POSITION x</label><span class="val" id="r-x">—</span>
     <label>SPEED v</label><span class="val" id="r-v">—</span>
     <label>OPENING α</label><span class="val" id="r-alpha">—</span>
-    <label>RIG OFFSET z</label><span class="val" id="r-z">—</span>
+    <label>BALL OFFSET z</label><span class="val" id="r-z">—</span>
     <label>SEPARATION η</label><span class="val" id="r-eta">—</span>
     <label>MARGIN δ</label><span class="val" id="r-delta">—</span>
     <label>ROLL SPIN ω<sub>⊥</sub></label><span class="val" id="r-omega">—</span>
@@ -100,12 +100,11 @@
     <button id="btn-open" class="hold">OPEN ▶ <kbd>→</kbd></button>
     <button id="btn-pulse" class="fire">OPEN PULSE <kbd>SPACE</kbd></button>
   </div>
+  <h2>ROD ROTATION <small>· ±5° nominal per rod</small></h2>
   <div class="btnrow" style="margin-top:6px">
-    <button id="btn-left" class="hold">◀ RIG <kbd>A</kbd></button>
-    <button id="btn-right" class="hold">RIG ▶ <kbd>D</kbd></button>
+    <button id="btn-common-neg" class="hold">BOTH ↺ <kbd>A</kbd></button>
+    <button id="btn-common-pos" class="hold">BOTH ↻ <kbd>D</kbd></button>
   </div>
-
-  <h2>INDEPENDENT ROD ROTATION <small>· ±5° nominal</small></h2>
   <div class="btnrow quad">
     <button id="btn-l-neg" class="hold">L ↺ <kbd>Q</kbd></button>
     <button id="btn-l-pos" class="hold">L ↻ <kbd>E</kbd></button>
@@ -152,6 +151,7 @@
     <h2 id="theory-title">COMPLETE MECHANICS MODEL</h2>
     <p><b>Rigid-body foundation.</b> Peng Xu, Richard E. Groff, and Timothy C. Burg derived and experimentally validated the nonlinear, underactuated, nonholonomic Shoot-the-Moon dynamics and model-based position control. This simulator treats that work as the rigid foundation.</p>
     <p><b>Present extensions.</b> Rolling loss, traction guards, elastic rail compliance and its fold, hybrid contact loss, scoring flight, timing risk, target viability, independent axial rotation of both rods, and compound opening–twist control.</p>
+    <p><b>Physical control correction.</b> The real apparatus does not translate the complete rail assembly laterally. The simulator fixes the rail centerline: <kbd>A</kbd>/<kbd>D</kbd> rotate both rods together, while <kbd>Q</kbd>/<kbd>E</kbd> and <kbd>U</kbd>/<kbd>O</kbd> provide independent left/right twist.</p>
     <div class="equations">
       <code>η = d / 2(R+r), δ = √(1−η²), M = m(1+κ/δ²)</code>
       <code>ωₓ = −(r/R) φ̇c</code>

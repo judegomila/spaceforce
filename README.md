@@ -11,6 +11,8 @@ Live app: **https://spaceforce-chi.vercel.app/**
 
 A steel ball rides two player-controlled rods that rise along the board. Opening the rods lowers the ball relative to their centerlines, creating the geometric drive that permits apparent uphill motion. The player can also rotate each rod independently through a nominal range of about **±5°**, creating common and differential twist modes, moving contact surfaces, axial ball spin, steering, traction demand, and—outside the exact parallel circular limit—weak propulsion or braking.
 
+The physical apparatus does **not** translate the whole rail assembly laterally. The simulator fixes the rail centerline and maps `A` / `D` to common twist of both rods. Independent left/right twist remains available on `Q` / `E` and `U` / `O`.
+
 ## Prior work and attribution
 
 The rigid-body foundation is due to **Peng Xu, Richard E. Groff, and Timothy C. Burg**.
@@ -86,7 +88,7 @@ The compliant support fold means the rails can lose the stable support branch be
 |---|---|
 | `Right` / `Up` | Open rods |
 | `Left` / `Down` | Close rods |
-| `A` / `D` | Translate the complete rod assembly laterally |
+| `A` / `D` | Rotate both rods together: negative / positive common twist |
 | `Q` / `E` | Rotate the left rod negative / positive |
 | `U` / `O` | Rotate the right rod negative / positive |
 | `Space` | Opening pulse |

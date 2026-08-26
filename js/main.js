@@ -68,8 +68,8 @@ window.addEventListener('keydown', (e) => {
 
   if (k === 'arrowright' || k === 'arrowup') { keys.add('open'); e.preventDefault(); }
   if (k === 'arrowleft' || k === 'arrowdown') { keys.add('close'); e.preventDefault(); }
-  if (k === 'd') keys.add('right');
-  if (k === 'a') keys.add('left');
+  if (k === 'd') keys.add('common-pos');
+  if (k === 'a') keys.add('common-neg');
   if (k === 'q') keys.add('l-neg');
   if (k === 'e') keys.add('l-pos');
   if (k === 'u') keys.add('r-neg');
@@ -86,8 +86,8 @@ window.addEventListener('keyup', (e) => {
   const k = keyName(e);
   if (k === 'arrowright' || k === 'arrowup') keys.delete('open');
   if (k === 'arrowleft' || k === 'arrowdown') keys.delete('close');
-  if (k === 'd') keys.delete('right');
-  if (k === 'a') keys.delete('left');
+  if (k === 'd') keys.delete('common-pos');
+  if (k === 'a') keys.delete('common-neg');
   if (k === 'q') keys.delete('l-neg');
   if (k === 'e') keys.delete('l-pos');
   if (k === 'u') keys.delete('r-neg');
@@ -97,10 +97,10 @@ window.addEventListener('keyup', (e) => {
 
 function updateRates() {
   sim.setManualRate((keys.has('open') ? 1 : 0) - (keys.has('close') ? 1 : 0));
-  // From the default camera, screen-right is -z in the rail frame.
-  sim.setManualShift((keys.has('left') ? 1 : 0) - (keys.has('right') ? 1 : 0));
-  const minus = (keys.has('l-pos') ? 1 : 0) - (keys.has('l-neg') ? 1 : 0);
-  const plus = (keys.has('r-pos') ? 1 : 0) - (keys.has('r-neg') ? 1 : 0);
+  // A/D are a physical common-twist shorthand; Q/E and U/O add independent trim.
+  const common = (keys.has('common-pos') ? 1 : 0) - (keys.has('common-neg') ? 1 : 0);
+  const minus = common + (keys.has('l-pos') ? 1 : 0) - (keys.has('l-neg') ? 1 : 0);
+  const plus = common + (keys.has('r-pos') ? 1 : 0) - (keys.has('r-neg') ? 1 : 0);
   sim.setManualTwist(minus, plus);
 }
 
@@ -126,8 +126,8 @@ function holdButton(id, action) {
 
 holdButton('btn-close', 'close');
 holdButton('btn-open', 'open');
-holdButton('btn-left', 'left');
-holdButton('btn-right', 'right');
+holdButton('btn-common-neg', 'common-neg');
+holdButton('btn-common-pos', 'common-pos');
 holdButton('btn-l-neg', 'l-neg');
 holdButton('btn-l-pos', 'l-pos');
 holdButton('btn-r-neg', 'r-neg');

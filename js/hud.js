@@ -60,7 +60,7 @@ export class Hud {
     const rolling = sim.mode === 'ROLL';
     const v = rolling ? sim.v : (sim.flight ? sim.flight.vx : 0);
     const x = rolling ? sim.x : (sim.flight ? sim.flight.x : sim.x);
-    const zNow = rolling ? sim.z + sim.zRel : (sim.flight ? sim.flight.z : sim.z + sim.zRel);
+    const zNow = rolling ? sim.zRel : (sim.flight ? sim.flight.z : sim.zRel);
 
     $('r-x').textContent = fmt(x * 1000, 1) + ' mm';
     $('r-v').textContent = fmt(v, 3) + ' m/s';

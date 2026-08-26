@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { P, Sim, pHit } from '../js/physics.js';
 
 function advance(sim, seconds, dt = 1 / 240, hook = null) {
@@ -22,6 +23,17 @@ function advance(sim, seconds, dt = 1 / 240, hook = null) {
 // Timing-risk formula must fall with speed.
 assert.ok(pHit(0.10, 0.027) > pHit(0.30, 0.027));
 assert.ok(pHit(0.30, 0.027) > pHit(0.55, 0.027));
+
+// The physical model must not expose artificial whole-rig translation.
+{
+  const sim = new Sim();
+  assert.equal(typeof sim.setManualShift, 'undefined');
+  assert.equal(Object.hasOwn(sim, 'z'), false);
+  const mainSource = readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
+  assert.match(mainSource, /common-neg/);
+  assert.match(mainSource, /common-pos/);
+  assert.doesNotMatch(mainSource, /setManualShift/);
+}
 
 // Common twist should remain within ±5° and generate axial ball spin.
 {

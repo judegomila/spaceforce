@@ -61,9 +61,7 @@ export const P = {
   twistTractionK: 0.70,
   twistForceShare: 0.45,
 
-  // lateral translation of the whole arm assembly
-  zMax: 0.025,
-  zRateMax: 0.04,
+  // No whole-rig lateral translation: the physical apparatus only opens and twists.
 
   // deck rolling
   mu_wood: 0.02,
@@ -155,9 +153,6 @@ export class Sim {
     this.alphaDot = 0;
     this.manualRate = 0;
 
-    this.z = 0;
-    this.zDot = 0;
-    this.manualShift = 0;
     this.zRel = 0;
     this.zRelDot = 0;
 
@@ -249,7 +244,6 @@ export class Sim {
   }
 
   setManualRate(r) { this.manualRate = clamp(r, -1, 1); }
-  setManualShift(r) { this.manualShift = clamp(r, -1, 1); }
   setManualTwist(minusRate, plusRate) {
     this.manualPhiMinus = clamp(minusRate, -1, 1);
     this.manualPhiPlus = clamp(plusRate, -1, 1);
@@ -384,11 +378,6 @@ export class Sim {
     this.phiCDot = 0.5 * (this.phiPlusDot + this.phiMinusDot);
     this.phiDeltaDot = 0.5 * (this.phiMinusDot - this.phiPlusDot);
 
-    // Translate the whole rail assembly laterally.
-    this.zDot = this.manualShift * P.zRateMax;
-    const zNext = clamp(this.z + this.zDot * dt, -P.zMax, P.zMax);
-    if (zNext === -P.zMax || zNext === P.zMax) this.zDot = 0;
-    this.z = zNext;
   }
 
   updateTwistKinematics(dt, eta, tanA) {
@@ -495,10 +484,10 @@ export class Sim {
     this.flight = {
       x: this.x,
       y: P.a * this.delta,
-      z: this.z + this.zRel,
+      z: this.zRel,
       vx: this.v,
       vy: 0,
-      vz: this.zDot + this.zRelDot,
+      vz: this.zRelDot,
       spin: this.omega,
       spinX: this.omegaX,
     };

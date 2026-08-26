@@ -323,10 +323,9 @@ export class Stage {
     this.rodM.rotation.y = +sim.alpha;
     this.rodPSpin.rotation.x = sim.phiPlus;
     this.rodMSpin.rotation.x = sim.phiMinus;
-    this.arms.position.z = sim.z;
 
     if (sim.mode === 'ROLL') {
-      this.ball.position.set(sim.x, P.a * sim.delta, sim.z + sim.zRel);
+      this.ball.position.set(sim.x, P.a * sim.delta, sim.zRel);
     } else if (sim.flight) {
       this.ball.position.set(sim.flight.x, sim.flight.y, sim.flight.z);
     }
@@ -337,7 +336,7 @@ export class Stage {
     const showRing = sim.mode === 'ROLL' && xPred < P.L;
     this.ring.visible = showRing;
     if (showRing) {
-      this.ring.position.set(xPred, 0.002, sim.z + sim.zRel);
+      this.ring.position.set(xPred, 0.002, sim.zRel);
       this.ring.material.opacity = 0.3 + 0.25 * Math.sin(time * 5);
     }
 
