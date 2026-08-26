@@ -40,3 +40,16 @@ test('planner returns no route when the valid state space is disconnected', () =
   const path = findRiskAwarePath(grid, v(1, 3), v(7, 3), { maxRisk: 1.1 });
   assert.deepEqual(path, []);
 });
+
+test('risk planner connects an outside hand approach to a legal interior release state', () => {
+  const world = new KlusterWorld();
+  const hand = { active: true, pos: v(-5.0, -3.55), angle: 0.15, posture: 'flat', moment: 1, collisionRadius: 0.27, footprintRadius: 0.42 };
+  const grid = computeRiskGrid(world, hand, { cols: 47, rows: 35 });
+  const candidate = chooseCandidate(grid, 'safe');
+  assert.ok(candidate >= 0, 'a legal release candidate should exist');
+  assert.equal(grid.releaseValid[candidate], 1, 'candidate must be a legal release state');
+  const goal = gridPoint(grid, candidate);
+  const path = findRiskAwarePath(grid, hand.pos, goal, { maxRisk: 1.13, riskWeight: 8 });
+  assert.ok(path.length >= 2, 'outside approach should connect to the cord interior');
+  assert.ok(path.some((point) => Math.abs(point.x) < world.cord.rx && Math.abs(point.y) < world.cord.ry));
+});
