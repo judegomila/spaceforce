@@ -1,73 +1,149 @@
-# SPACEFORCE
+# KLUSTER LAB
 
-**A 3D, real-time simulator of the Space Force / Shoot-the-Moon two-rail ball game**, implementing the reduced hybrid model from:
+An interactive, browser-native simulator for the mechanics and strategy of **Kluster**: friction-pinned magnetic rigid bodies, rotational instability, tipping, magnetic capture, cascades, a movable cord boundary, and turn-based risk transfer.
 
-> J. Gomila, *Risk-Optimal Pulsed Control of a Variable-Separation Two-Rail Ball Game — A compliant hybrid model of the Space Force / Shoot-the-Moon mechanism* (2026). [`paper.pdf`](paper.pdf)
+The implementation accompanies Jude Gomila's 2026 paper, *A Mathematical Framework for Kluster: Friction-Pinned Magnetic Rigid Bodies, Hybrid Instabilities, Moving Boundaries, and Sequential Strategy*.
 
-A steel ball rides two player-controlled rods that rise uphill. Opening the rods lowers the ball relative to the rails — geometric competition that produces apparent uphill motion. Score by releasing the ball into one of six apertures; the 1000-point **SPACE FORCE** cup demands a high-speed terminal release, where timing risk is greatest.
+## Live model
 
-## Physics (paper → code)
+The app is a zero-build static site deployed through Vercel and suitable for any ordinary static web server. It deliberately has no runtime framework or package dependency.
 
-The simulation core (`js/physics.js`) is a direct implementation of the paper's compact reduced model (Appendix B) plus its guards and hybrid transitions:
+```bash
+git clone https://github.com/judegomila/spaceforce.git
+cd spaceforce
+git switch kluster-lab
+python3 -m http.server 4173
+```
 
-| Paper | Implementation |
-|---|---|
-| Eq. B.1 — geometry `d = d0 + 2x·tanα`, `η = d/2(R+r)`, `δ = √(1−η²)` | `etaCmd()`, `stepRoll()` |
-| Eq. 3.5 — effective mass `M = m(1 + κ/δ²)` | `stepRoll()` |
-| Eq. 3.7 / B.3 — reduced Lagrange equation `Mv̇ + ½Mₓv² + Mₐα̇v + Vₓ = −F_d` | `stepRoll()` |
-| Eq. 5.2 — rolling resistance `F_d = μᵣmg·cosβ/δ·sgn(v) + c₁v + c₂|v|v` | `stepRoll()` (regularized `tanh`) |
-| Eq. 5.3 — no-slip feasibility `‖F_t‖ ≤ μₛN` | traction cap + microslip mode M2 |
-| Eq. 7.4–7.6 — compliance closure `η = η_c + Λη/δ`, fold at `δ* = Λ^{1/3}` | `solveEta()` — fixed-point divergence **is** the snap-through release |
-| Eq. 8.2 — free flight after release | `stepFlight()` (modes M4/M5) |
-| §8 hybrid modes — a missed drop rolls on the wood deck | `stepBoard()` — incline gravity + rolling resistance; the ball drops into the first hole it rolls over, or rolls back down the incline to the tray |
-| Eq. 5.4–5.7, 8.3 — admissibility guards `G_geom, G_fold, G_N, G_μ, G_ω` | live guard bars in the HUD |
-| Eq. 6.4 — finite open–close pulse `α(t) = α₀ + A·f((t−t_p)/τ_p)` | `triggerPulse()` (Gaussian, high-authority per Prop. 10.1) |
-| Eq. 9.5–9.6 — hit probability `p_hit(v) = erf(Δx / 2√2·√(σₓ²+v²σ_t²))` | `pHit()` — live risk readout |
+Open `http://localhost:4173`.
 
-The **Mₐα̇v** term is what makes pulsing work: closing the rails while the ball moves injects energy (Eq. 6.3, "pulsing the ball"). The **compliance fold** means the rails snap open before the rigid limit η → 1 — the hidden hazard of terminal high-speed play. Watch the ball's spin diverge as δ → 0 (Remark 4.3).
+## What is simulated
+
+Each stone is a planar rigid body with position, velocity, body angle, angular velocity, posture, mass, inertia, contact footprint, and a body-fixed magnetic dipole moment. The far-field pair potential is
+
+\[
+U_{ij}=\frac{C}{r^3}\left[\mathbf m_i\!\cdot\!\mathbf m_j-3(\mathbf m_i\!\cdot\!\hat{\mathbf r})(\mathbf m_j\!\cdot\!\hat{\mathbf r})\right].
+\]
+
+The simulator evaluates the corresponding dipole force and torque. Static pinning uses a reduced ellipsoidal contact-wrench guard,
+
+\[
+\chi=\sqrt{\left(\frac{\lVert\mathbf F\rVert}{\mu_sN}\right)^2+\left(\frac{\tau}{\mu_sN\rho}\right)^2}.
+\]
+
+A stone remains pinned for \(\chi<1\), subject to a separate tipping guard. Once the threshold is crossed, the model switches to kinetic friction and semi-implicit rigid-body integration. Contact is compliant. Attractive low-energy contacts create persistent capture joints, changing the contact graph and permitting hybrid cascades.
+
+The held magnet is part of the dynamics **before release**, so a move is a trajectory through a time-dependent field rather than a final coordinate.
+
+## Modes
+
+### Laboratory
+
+Load canonical mechanics experiments:
+
+- side-by-side rotational saddle;
+- rotation before translation;
+- frustrated triangle;
+- hand-triggered capture cascade;
+- upright tipping tripwire;
+- near-critical adversarial trap;
+- deterministic seeded midgame.
+
+Events remain visible on the board so the transition sequence can be inspected.
+
+### Game
+
+Play one to four players with 24 stones divided equally. The state transition follows exact inventory bookkeeping:
+
+\[
+\Delta n=-I+R,
+\]
+
+where \(I\) records whether the held stone was released and \(R\) is the number of affected stones returned to the player's inventory. A capture, contact with the held stone, or boundary exit ends the turn; the affected connected component is collected after the short physical resolution window.
+
+## Risk-aware route planner
+
+The risk map samples candidate held-stone positions and computes the maximum predicted force/torque/tipping utilization across the existing board and held stone. Two planners are provided:
+
+- **Safe route:** minimizes predicted instability and rewards clearance.
+- **Trap route:** searches below the threshold for a high-susceptibility terminal placement.
+
+An A* solver finds a trajectory through the sampled reach-avoid state space. Route execution is intentionally separated from release: the user retains control of the terminal decision.
 
 ## Controls
 
 | Input | Action |
 |---|---|
-| `→` / `↑` (hold) | Open rails |
-| `←` / `↓` (hold) | Close rails |
-| `A` / `D` (hold) | Translate the lever-arm assembly left / right — cups sit on the centerline, so aim laterally before release |
-| `SPACE` | Fire an open–close pulse (amplitude & width sliders) |
-| `T` | Autopilot: boundary-ride at η_ref — the paper's risk dial. Higher η_ref = faster, closer to release |
-| `N` | Timing noise: adds Gaussian actuation jitter (σ_t) |
-| `R` | Reset |
-| Mouse drag / wheel | Orbit / zoom camera |
+| Pointer / touch | Move the held stone |
+| Arrow keys or WASD | Translate the held stone |
+| Mouse wheel, Q / E | Rotate dipole axis |
+| P | Toggle flat / edge posture |
+| Space | Release |
+| G / H | Plan safe / trap route |
+| V | Execute or stop planned route |
+| T | Pause / resume |
+| R | Reset current experiment |
 
-The HUD shows a live **phase portrait** (x, v) with the capture corridor into your selected target, a **release predictor** (η(x) at the current opening, with the fold line η*), and all five admissibility guards.
+The advanced panel exposes magnetic strength, static friction, damping, time scale, cord dimensions, pinch, and rotation. Field arrows, force vectors, labels, and stability halos can be toggled independently.
 
-## Strategy notes
+## Architecture
 
-- Fully open from the start and the fold releases you at x ≈ 0.11 m → the 100 cup. To go deeper, **close as you climb**, riding η just under the fold.
-- The 1000 cup sits past the end of the rails: you must arrive at the rail tips with v ≈ 0.30–0.42 m/s. `p_hit` falls strictly with speed (Prop. 9.2) — the maximum score is a boundary-riding risk problem.
-- Try one strong pulse mid-board versus many small ones (Conjecture 10.2).
-
-## Run locally
-
-Static site — any file server works:
-
-```sh
-npx serve .
-# or: python3 -m http.server
+```text
+index.html
+css/style.css
+js/
+  main.js          browser entry point
+  app-base.js      controls, modes, placement and route planning
+  app-runtime.js   fixed-step loop, game rules and hybrid event resolution
+  physics-core.js  dipole formulas and cord geometry
+  world.js         friction, tipping, contact, capture and serialization
+  physics.js       public mechanics exports
+  pathfinding.js   sampled risk field and A* reach-avoid planner
+  presets.js       canonical experiments and deterministic midgame generator
+  renderer.js      high-DPI scientific canvas renderer
+  ui.js            telemetry, controls, plots, logs, import/export
+paper.tex           release-manuscript LaTeX source
+tests/              mathematical and planner regression tests
 ```
 
-## Deploy
+The app uses a fixed-step physics clock and a decoupled render loop. State snapshots can be exported and re-imported as JSON.
 
-Deployed on Vercel as a static site (no build step). Three.js is loaded from CDN via an import map.
+## Verification
 
-## Structure
-
+```bash
+npm test
+npm run check
 ```
-index.html      shell + HUD DOM
-css/style.css   mission-control instrument styling
-js/physics.js   reduced hybrid model (the paper, in code)
-js/scene.js     Three.js apparatus, deck, ball, release ring
-js/hud.js       telemetry, guards, phase portrait, predictor
-js/main.js      loop + input
-paper.pdf       the paper
+
+The regression suite checks:
+
+- exact head-to-tail dipole energy, field, and force scaling;
+- side-by-side radial repulsion and angular torque;
+- signed cord margins;
+- the reduced friction-wrench threshold;
+- capture-joint creation and connected components;
+- state serialization;
+- safe-candidate construction;
+- A* routing through a constrained gap;
+- rejection of disconnected route spaces.
+
+## Scientific scope and limitations
+
+This is a **dimensionless reduced-order simulator**, not a calibrated prediction of a particular commercial set. Its purpose is to make the paper's mechanics executable and falsifiable.
+
+The point-dipole approximation is reliable only in the far field. Near contact, the implementation softens and caps interactions rather than claiming a finite-magnet solution. The friction-wrench surface is an ellipsoidal approximation; irregular coating, pressure distributions, rolling resistance, and three-dimensional impacts are compressed into effective parameters. Capture is an energy/attraction criterion rather than a full finite-magnet adhesion model. Quantitative comparison with physical Kluster stones requires the measurement program described in the paper.
+
+## Citation
+
+```bibtex
+@article{gomila2026kluster,
+  author = {Jude Gomila},
+  title = {A Mathematical Framework for Kluster: Friction-Pinned Magnetic Rigid Bodies, Hybrid Instabilities, Moving Boundaries, and Sequential Strategy},
+  year = {2026},
+  note = {Preprint}
+}
 ```
+
+## License
+
+The simulator source is released under the MIT License. The paper remains attributable to Jude Gomila. “Kluster” is used descriptively to identify the game being modeled; this repository is an independent research and educational project.
