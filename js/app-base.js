@@ -7,6 +7,7 @@ import { UI } from './ui.js';
 import { getPreset } from './presets.js';
 import { chooseCandidate, computeRiskGrid, findRiskAwarePath, gridPoint } from './pathfinding.js';
 
+
 export const PHASE_NOTES = {
   aiming: 'Move the held stone through the field. Release with Space.',
   settling: 'The stone is released; the board must settle without a capture or boundary exit.',
@@ -161,7 +162,7 @@ export class KlusterAppBase {
     this.riskDirty = true;
     this.accumulator = 0;
     this.addLog('PRESET', preset.name, 'success');
-    if (preset.autoApproach) this.addLog('ROUTE', 'Demonstration approach armed; press A to run.', '');
+    if (preset.autoApproach) this.addLog('ROUTE', 'Demonstration approach armed; press V to run.', '');
     this.refreshEvaluation();
     this.computeRisk(true);
     this.ui?.setLogs(this.logs);
