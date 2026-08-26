@@ -1,0 +1,49 @@
+name: Build paper PDF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - paper.tex
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-spaceforce-paper
+  cancel-in-progress: true
+
+jobs:
+  latex:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compile LaTeX paper
+        uses: xu-cheng/latex-action@v4
+        with:
+          root_file: paper.tex
+          texlive_version: 2026
+          args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
+
+      - name: Verify generated PDF
+        run: |
+          test -s paper.pdf
+          ! grep -q "undefined references" paper.log
+
+      - name: Commit rebuilt paper when changed
+        run: |
+          if git diff --quiet -- paper.pdf; then
+            echo "paper.pdf is already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add paper.pdf
+          git commit -m "docs: rebuild paper PDF from LaTeX"
+          git push

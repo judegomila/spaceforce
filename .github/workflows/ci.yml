@@ -1,0 +1,47 @@
+name: Validate simulator
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - css/**
+      - js/**
+      - tests/**
+      - package.json
+      - .github/workflows/ci.yml
+  pull_request:
+    paths:
+      - index.html
+      - css/**
+      - js/**
+      - tests/**
+      - package.json
+      - .github/workflows/ci.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-spaceforce-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Parse JavaScript modules
+        run: npm run check
+
+      - name: Run physics smoke tests
+        run: npm run test:physics
