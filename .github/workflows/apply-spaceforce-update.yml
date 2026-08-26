@@ -29,11 +29,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify and unpack update payload
+      - name: Verify, unpack, and finalize source payload
         run: |
           cat .spaceforce-update.part* | base64 --decode > /tmp/spaceforce-update.tar.gz
           echo "d194ad4c5924f3247f8413a078b47597f7cfe21ee2684e854aef4f5acbfa4b9e  /tmp/spaceforce-update.tar.gz" | sha256sum --check --strict
           tar -xzf /tmp/spaceforce-update.tar.gz
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("paper.tex")
+          source = path.read_text(encoding="utf-8")
+          needle = r"\newtheorem{conjecture}[proposition]{Conjecture}"
+          addition = needle + "\n" + r"\crefname{conjecture}{conjecture}{conjectures}" + "\n" + r"\Crefname{conjecture}{Conjecture}{Conjectures}"
+          if r"\crefname{conjecture}" not in source:
+              if needle not in source:
+                  raise SystemExit("conjecture theorem declaration not found")
+              source = source.replace(needle, addition, 1)
+          path.write_text(source, encoding="utf-8")
+          PY
 
       - name: Validate JavaScript model
         run: |
@@ -48,12 +60,25 @@ jobs:
           args: -pdf -file-line-error -halt-on-error -interaction=nonstopmode
 
       - name: Verify generated paper
-        run: test -s paper.pdf
+        run: |
+          test -s paper.pdf
+          ! grep -q "undefined references" paper.log
 
       - name: Commit application, source, and rebuilt PDF
         run: |
           rm -f .spaceforce-update.part*
-          rm -f .github/workflows/apply-spaceforce-update.yml
+          rm -f .github/workflows/build-paper.yml
+          rm -f paper.aux paper.fdb_latexmk paper.fls paper.log paper.out paper.synctex.gz
+          cat > .gitignore <<'EOF'
+          node_modules/
+          .DS_Store
+          *.aux
+          *.fdb_latexmk
+          *.fls
+          *.log
+          *.out
+          *.synctex.gz
+          EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
