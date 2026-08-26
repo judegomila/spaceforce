@@ -1,0 +1,249 @@
+name: Repurpose A-D as common rod twist
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/repurpose-ad-twist.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Remove artificial rail translation and remap A-D
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              found = text.count(old)
+              if found != count:
+                  raise SystemExit(f'{path}: expected {count} occurrence(s), found {found}: {old[:80]!r}')
+              p.write_text(text.replace(old, new, count), encoding='utf-8')
+
+          replace('js/main.js',
+          """  if (k === 'd') keys.add('right');
+          if (k === 'a') keys.add('left');
+          """,
+          """  if (k === 'd') keys.add('common-pos');
+          if (k === 'a') keys.add('common-neg');
+          """)
+
+          replace('js/main.js',
+          """  if (k === 'd') keys.delete('right');
+          if (k === 'a') keys.delete('left');
+          """,
+          """  if (k === 'd') keys.delete('common-pos');
+          if (k === 'a') keys.delete('common-neg');
+          """)
+
+          replace('js/main.js',
+          """  // From the default camera, screen-right is -z in the rail frame.
+          sim.setManualShift((keys.has('left') ? 1 : 0) - (keys.has('right') ? 1 : 0));
+          const minus = (keys.has('l-pos') ? 1 : 0) - (keys.has('l-neg') ? 1 : 0);
+          const plus = (keys.has('r-pos') ? 1 : 0) - (keys.has('r-neg') ? 1 : 0);
+          sim.setManualTwist(minus, plus);
+          """,
+          """  // A/D are a physical common-twist shorthand; Q/E and U/O add independent trim.
+          const common = (keys.has('common-pos') ? 1 : 0) - (keys.has('common-neg') ? 1 : 0);
+          const minus = common + (keys.has('l-pos') ? 1 : 0) - (keys.has('l-neg') ? 1 : 0);
+          const plus = common + (keys.has('r-pos') ? 1 : 0) - (keys.has('r-neg') ? 1 : 0);
+          sim.setManualTwist(minus, plus);
+          """)
+
+          replace('js/main.js',
+          """holdButton('btn-left', 'left');
+          holdButton('btn-right', 'right');
+          """,
+          """holdButton('btn-common-neg', 'common-neg');
+          holdButton('btn-common-pos', 'common-pos');
+          """)
+
+          replace('js/physics.js',
+          """  // lateral translation of the whole arm assembly
+          zMax: 0.025,
+          zRateMax: 0.04,
+
+          """,
+          """  // The physical apparatus has no whole-rig lateral translation.
+          // Cross-sectional motion is generated only by differential rod twist.
+
+          """)
+
+          replace('js/physics.js',
+          """    this.z = 0;
+          this.zDot = 0;
+          this.manualShift = 0;
+          this.zRel = 0;
+          """,
+          """    this.zRel = 0;
+          """)
+
+          replace('js/physics.js',
+          """  setManualRate(r) { this.manualRate = clamp(r, -1, 1); }
+          setManualShift(r) { this.manualShift = clamp(r, -1, 1); }
+          setManualTwist(minusRate, plusRate) {
+          """,
+          """  setManualRate(r) { this.manualRate = clamp(r, -1, 1); }
+          setManualTwist(minusRate, plusRate) {
+          """)
+
+          replace('js/physics.js',
+          """    // Translate the whole rail assembly laterally.
+          this.zDot = this.manualShift * P.zRateMax;
+          const zNext = clamp(this.z + this.zDot * dt, -P.zMax, P.zMax);
+          if (zNext === -P.zMax || zNext === P.zMax) this.zDot = 0;
+          this.z = zNext;
+          """,
+          """)
+
+          replace('js/physics.js',
+          """      z: this.z + this.zRel,
+          vx: this.v,
+          vy: 0,
+          vz: this.zDot + this.zRelDot,
+          """,
+          """      z: this.zRel,
+          vx: this.v,
+          vy: 0,
+          vz: this.zRelDot,
+          """)
+
+          replace('js/scene.js',
+          """    this.rodPSpin.rotation.x = sim.phiPlus;
+          this.rodMSpin.rotation.x = sim.phiMinus;
+          this.arms.position.z = sim.z;
+
+          if (sim.mode === 'ROLL') {
+            this.ball.position.set(sim.x, P.a * sim.delta, sim.z + sim.zRel);
+          """,
+          """    this.rodPSpin.rotation.x = sim.phiPlus;
+          this.rodMSpin.rotation.x = sim.phiMinus;
+
+          if (sim.mode === 'ROLL') {
+            this.ball.position.set(sim.x, P.a * sim.delta, sim.zRel);
+          """)
+
+          replace('js/scene.js',
+          """      this.ring.position.set(xPred, 0.002, sim.z + sim.zRel);
+          """,
+          """      this.ring.position.set(xPred, 0.002, sim.zRel);
+          """)
+
+          replace('js/hud.js',
+          """    const zNow = rolling ? sim.z + sim.zRel : (sim.flight ? sim.flight.z : sim.z + sim.zRel);
+          """,
+          """    const zNow = rolling ? sim.zRel : (sim.flight ? sim.flight.z : sim.zRel);
+          """)
+
+          replace('index.html',
+          """    <label>RIG OFFSET z</label><span class=\"val\" id=\"r-z\">—</span>
+          """,
+          """    <label>BALL OFFSET z</label><span class=\"val\" id=\"r-z\">—</span>
+          """)
+
+          replace('index.html',
+          """  <div class=\"btnrow\" style=\"margin-top:6px\">
+            <button id=\"btn-left\" class=\"hold\">◀ RIG <kbd>A</kbd></button>
+            <button id=\"btn-right\" class=\"hold\">RIG ▶ <kbd>D</kbd></button>
+          </div>
+
+          <h2>INDEPENDENT ROD ROTATION <small>· ±5° nominal</small></h2>
+          """,
+          """  <h2>ROD ROTATION <small>· ±5° nominal per rod</small></h2>
+          <div class=\"btnrow\" style=\"margin-top:6px\">
+            <button id=\"btn-common-neg\" class=\"hold\">BOTH ↺ <kbd>A</kbd></button>
+            <button id=\"btn-common-pos\" class=\"hold\">BOTH ↻ <kbd>D</kbd></button>
+          </div>
+          """)
+
+          replace('index.html',
+          """    <p><b>Present extensions.</b> Rolling loss, traction guards, elastic rail compliance and its fold, hybrid contact loss, scoring flight, timing risk, target viability, independent axial rotation of both rods, and compound opening–twist control.</p>
+          """,
+          """    <p><b>Present extensions.</b> Rolling loss, traction guards, elastic rail compliance and its fold, hybrid contact loss, scoring flight, timing risk, target viability, independent axial rotation of both rods, and compound opening–twist control.</p>
+            <p><b>Physical control correction.</b> The real apparatus does not translate the complete rail assembly laterally. The simulator therefore fixes the rail centerline: <kbd>A</kbd>/<kbd>D</kbd> rotate both rods together, while <kbd>Q</kbd>/<kbd>E</kbd> and <kbd>U</kbd>/<kbd>O</kbd> provide independent left/right twist.</p>
+          """)
+
+          replace('README.md',
+          """A steel ball rides two player-controlled rods that rise along the board. Opening the rods lowers the ball relative to their centerlines, creating the geometric drive that permits apparent uphill motion. The player can also rotate each rod independently through a nominal range of about **±5°**, creating common and differential twist modes, moving contact surfaces, axial ball spin, steering, traction demand, and—outside the exact parallel circular limit—weak propulsion or braking.
+          """,
+          """A steel ball rides two player-controlled rods that rise along the board. Opening the rods lowers the ball relative to their centerlines, creating the geometric drive that permits apparent uphill motion. The player can also rotate each rod independently through a nominal range of about **±5°**, creating common and differential twist modes, moving contact surfaces, axial ball spin, steering, traction demand, and—outside the exact parallel circular limit—weak propulsion or braking.
+
+          The physical apparatus does **not** translate the whole rail assembly laterally. The simulator now fixes the rail centerline and maps `A` / `D` to common twist of both rods. Independent left/right twist remains available on `Q` / `E` and `U` / `O`.
+          """)
+
+          replace('README.md',
+          """| `A` / `D` | Translate the complete rod assembly laterally |
+          """,
+          """| `A` / `D` | Rotate both rods together: negative / positive common twist |
+          """)
+
+          replace('tests/physics-smoke.mjs',
+          """import assert from 'node:assert/strict';
+          import { P, Sim, pHit } from '../js/physics.js';
+          """,
+          """import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          import { P, Sim, pHit } from '../js/physics.js';
+          """)
+
+          replace('tests/physics-smoke.mjs',
+          """assert.ok(pHit(0.30, 0.027) > pHit(0.55, 0.027));
+
+          // Common twist should remain within ±5° and generate axial ball spin.
+          """,
+          """assert.ok(pHit(0.30, 0.027) > pHit(0.55, 0.027));
+
+          // The physical model must not expose artificial whole-rig translation.
+          {
+            const sim = new Sim();
+            assert.equal(typeof sim.setManualShift, 'undefined');
+            assert.equal(Object.hasOwn(sim, 'z'), false);
+            const mainSource = readFileSync(new URL('../js/main.js', import.meta.url), 'utf8');
+            assert.match(mainSource, /common-neg/);
+            assert.match(mainSource, /common-pos/);
+            assert.doesNotMatch(mainSource, /setManualShift/);
+          }
+
+          // Common twist should remain within ±5° and generate axial ball spin.
+          """)
+
+          replace('package.json',
+          '  "version": "2.0.0",\n',
+          '  "version": "2.0.1",\n')
+          PY
+
+          if grep -R -nE 'setManualShift|manualShift|zRateMax|^[[:space:]]+zMax:' js index.html README.md; then
+            echo 'Artificial lateral-shift control remains in source.' >&2
+            exit 1
+          fi
+
+      - name: Validate corrected simulator
+        run: |
+          npm run check
+          npm run test:physics
+
+      - name: Commit corrected physical controls
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html README.md package.json js/main.js js/physics.js js/scene.js js/hud.js tests/physics-smoke.mjs
+          git commit -m "fix: repurpose A-D as common rod twist"
+          git push
