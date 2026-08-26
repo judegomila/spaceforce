@@ -1,10 +1,12 @@
 {
   "name": "spaceforce",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "3D simulator of the Space Force / Shoot-the-Moon two-rail ball game (risk-optimal pulsed control)",
+  "description": "3D simulator of the Space Force / Shoot-the-Moon game with compliant hybrid mechanics, independent rod twist and risk-optimal pulsed control",
   "scripts": {
-    "dev": "npx serve ."
+    "dev": "npx serve .",
+    "check": "node --check js/physics.js && node --check js/main.js && node --check js/hud.js && node --check js/scene.js",
+    "test:physics": "node tests/physics-smoke.mjs"
   }
 }

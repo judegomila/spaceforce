@@ -1,73 +1,142 @@
 # SPACEFORCE
 
-**A 3D, real-time simulator of the Space Force / Shoot-the-Moon two-rail ball game**, implementing the reduced hybrid model from:
+**A real-time 3D mechanics and control simulator for the Space Force / Shoot-the-Moon two-rail ball game.**
 
-> J. Gomila, *Risk-Optimal Pulsed Control of a Variable-Separation Two-Rail Ball Game — A compliant hybrid model of the Space Force / Shoot-the-Moon mechanism* (2026). [`paper.pdf`](paper.pdf)
+The app implements the reduced model and experimental program developed in:
 
-A steel ball rides two player-controlled rods that rise uphill. Opening the rods lowers the ball relative to the rails — geometric competition that produces apparent uphill motion. Score by releasing the ball into one of six apertures; the 1000-point **SPACE FORCE** cup demands a high-speed terminal release, where timing risk is greatest.
+> Jude Gomila, *Complete Mechanics and Risk-Optimal Control of a Variable-Separation Two-Rail Ball Game: Independent Rod Attitude, Axial Twist, Compliance, Hybrid Release, and Maximum-Score Strategy* (2026).  
+> [`paper.pdf`](paper.pdf) · [`paper.tex`](paper.tex)
 
-## Physics (paper → code)
+Live app: **https://spaceforce-chi.vercel.app/**
 
-The simulation core (`js/physics.js`) is a direct implementation of the paper's compact reduced model (Appendix B) plus its guards and hybrid transitions:
+A steel ball rides two player-controlled rods that rise along the board. Opening the rods lowers the ball relative to their centerlines, creating the geometric drive that permits apparent uphill motion. The player can also rotate each rod independently through a nominal range of about **±5°**, creating common and differential twist modes, moving contact surfaces, axial ball spin, steering, traction demand, and—outside the exact parallel circular limit—weak propulsion or braking.
 
-| Paper | Implementation |
+## Prior work and attribution
+
+The rigid-body foundation is due to **Peng Xu, Richard E. Groff, and Timothy C. Burg**.
+
+- Peng Xu's 2011 Clemson thesis, [*Dynamics and Control of the Shoot-the-Moon Tabletop Game*](https://open.clemson.edu/all_theses/1209/), developed the kinematics, derived the equations of motion using Lagrangian and Newtonian approaches, identified the system as underactuated, nonlinear, and nonholonomic, designed linearized and nonlinear position controllers, constructed an automated apparatus, compared experiment with simulation, and demonstrated the nonholonomic translation–rotation constraint.
+- Xu, Groff, and Burg's 2012 ASME article, [*Dynamics and Control of the Shoot-the-Moon Tabletop Game*](https://doi.org/10.1115/1.4006223), presented the rigid dynamics and experimental nonlinear position control in journal form.
+- Xu also explicitly identified the rapid **shoot** mechanism as an interaction between ball rotation and translation.
+
+This repository does **not** claim the first model or controller for the game. It uses that validated rigid-body program as its foundation and extends the game in a different direction: rolling loss, friction guards, flexible rods, torsional phase lag, moving rod surfaces, independent axial twist, hybrid contact loss, ballistic scoring, viability boundaries, timing risk, and maximum-score optimal control.
+
+## What is new in this simulator
+
+The current app adds the following mechanics to the earlier version:
+
+1. **Independent rod angles** `phiMinus` and `phiPlus`, each bounded by the nominal range `|phi_i| <= 5°`.
+2. **Common twist**
+
+   ```text
+   phi_c = (phiPlus + phiMinus)/2
+   omega_x = -(r/R) phi_c_dot
+   ```
+
+   which commands ball spin about the longitudinal rail direction in the local parallel circular limit.
+
+3. **Differential twist**
+
+   ```text
+   phi_Delta = (phiMinus - phiPlus)/2
+   eta z_dot = r phi_Delta_dot
+   ```
+
+   represented in the app by a small compliant cross-sectional steering state and a live twist-compatibility residual.
+
+4. **Full-geometry longitudinal coupling**
+
+   ```text
+   v_x_twist = r phi_i_dot (t_i x n_i) . e_x
+   ```
+
+   represented by a deliberately weak, tunable reduced-order force. It vanishes in the exact parallel circular idealization and is not presented as a calibrated coefficient for a particular commercial machine.
+
+5. **Compound opening–twist pulses** with common, differential, or phased twist modes.
+6. **Visible rod rotation** using witness stripes and end markers on both rods.
+7. **Additional guards** for axial-angle range and differential-twist compatibility.
+8. **An in-app model note** explaining the provenance and the twist equations.
+
+## Physics: paper to code
+
+The simulation core is in [`js/physics.js`](js/physics.js).
+
+| Paper/model element | Implementation |
 |---|---|
-| Eq. B.1 — geometry `d = d0 + 2x·tanα`, `η = d/2(R+r)`, `δ = √(1−η²)` | `etaCmd()`, `stepRoll()` |
-| Eq. 3.5 — effective mass `M = m(1 + κ/δ²)` | `stepRoll()` |
-| Eq. 3.7 / B.3 — reduced Lagrange equation `Mv̇ + ½Mₓv² + Mₐα̇v + Vₓ = −F_d` | `stepRoll()` |
-| Eq. 5.2 — rolling resistance `F_d = μᵣmg·cosβ/δ·sgn(v) + c₁v + c₂|v|v` | `stepRoll()` (regularized `tanh`) |
-| Eq. 5.3 — no-slip feasibility `‖F_t‖ ≤ μₛN` | traction cap + microslip mode M2 |
-| Eq. 7.4–7.6 — compliance closure `η = η_c + Λη/δ`, fold at `δ* = Λ^{1/3}` | `solveEta()` — fixed-point divergence **is** the snap-through release |
-| Eq. 8.2 — free flight after release | `stepFlight()` (modes M4/M5) |
-| §8 hybrid modes — a missed drop rolls on the wood deck | `stepBoard()` — incline gravity + rolling resistance; the ball drops into the first hole it rolls over, or rolls back down the incline to the tray |
-| Eq. 5.4–5.7, 8.3 — admissibility guards `G_geom, G_fold, G_N, G_μ, G_ω` | live guard bars in the HUD |
-| Eq. 6.4 — finite open–close pulse `α(t) = α₀ + A·f((t−t_p)/τ_p)` | `triggerPulse()` (Gaussian, high-authority per Prop. 10.1) |
-| Eq. 9.5–9.6 — hit probability `p_hit(v) = erf(Δx / 2√2·√(σₓ²+v²σ_t²))` | `pHit()` — live risk readout |
+| `d = d0 + 2x tan(alpha)`, `eta = d/[2(R+r)]`, `delta = sqrt(1-eta^2)` | `etaCmd()`, `solveEta()`, `stepRoll()` |
+| `M = m(1 + kappa/delta^2)` | `stepRoll()` |
+| `M vdot = -Vx - 1/2 Mx v^2 - M_alpha alphaDot v - Fd + F_phi` | `stepRoll()` |
+| Rolling resistance and aerodynamic/viscous losses | `Fd` in `stepRoll()` |
+| Static-friction feasibility and microslip | `FtReq`, `FtCap`, `slip` |
+| Compliance closure and fold release | `solveEta()` and `etaCmdFold` |
+| Hybrid free flight, capture, deck roll, and miss | `release()`, `stepFlight()`, `stepBoard()` |
+| `omega_x = -(r/R) phi_c_dot` | `updateTwistKinematics()` |
+| `eta z_dot = r phi_Delta_dot` | `zRel`, `zRelDot`, `sDelta` |
+| Divergence-mediated twist coupling | `vTwist`, `Fphi` |
+| Finite opening pulse | `triggerPulse()` |
+| Vector opening–twist pulse | `triggerCompoundPulse()` |
+| Timing-risk hit probability | `pHit()` and HUD readout |
+| Target-specific capture corridor | `Hud.drawPhase()` |
 
-The **Mₐα̇v** term is what makes pulsing work: closing the rails while the ball moves injects energy (Eq. 6.3, "pulsing the ball"). The **compliance fold** means the rails snap open before the rigid limit η → 1 — the hidden hazard of terminal high-speed play. Watch the ball's spin diverge as δ → 0 (Remark 4.3).
+The compliant support fold means the rails can lose the stable support branch before the rigid limit `eta -> 1`. The app treats this as a snap-through release event. The phase portrait shows the current trajectory and target capture corridor; the release predictor shows the current `eta(x)` curve and fold line.
 
 ## Controls
 
 | Input | Action |
 |---|---|
-| `→` / `↑` (hold) | Open rails |
-| `←` / `↓` (hold) | Close rails |
-| `A` / `D` (hold) | Translate the lever-arm assembly left / right — cups sit on the centerline, so aim laterally before release |
-| `SPACE` | Fire an open–close pulse (amplitude & width sliders) |
-| `T` | Autopilot: boundary-ride at η_ref — the paper's risk dial. Higher η_ref = faster, closer to release |
-| `N` | Timing noise: adds Gaussian actuation jitter (σ_t) |
+| `Right` / `Up` | Open rods |
+| `Left` / `Down` | Close rods |
+| `A` / `D` | Translate the complete rod assembly laterally |
+| `Q` / `E` | Rotate the left rod negative / positive |
+| `U` / `O` | Rotate the right rod negative / positive |
+| `Space` | Opening pulse |
+| `C` | Compound opening–twist pulse |
+| `T` | Boundary-riding autopilot |
+| `N` | Gaussian timing noise |
 | `R` | Reset |
 | Mouse drag / wheel | Orbit / zoom camera |
 
-The HUD shows a live **phase portrait** (x, v) with the capture corridor into your selected target, a **release predictor** (η(x) at the current opening, with the fold line η*), and all five admissibility guards.
+The compound-pulse selector offers:
 
-## Strategy notes
+- **Common**: both rods rotate together, primarily generating axial ball spin.
+- **Differential**: rods rotate oppositely, producing cross-sectional steering demand.
+- **Phased**: one rod leads the other, mixing common/differential twist and the reduced full-geometry propulsion/slip channel.
 
-- Fully open from the start and the fold releases you at x ≈ 0.11 m → the 100 cup. To go deeper, **close as you climb**, riding η just under the fold.
-- The 1000 cup sits past the end of the rails: you must arrive at the rail tips with v ≈ 0.30–0.42 m/s. `p_hit` falls strictly with speed (Prop. 9.2) — the maximum score is a boundary-riding risk problem.
-- Try one strong pulse mid-board versus many small ones (Conjecture 10.2).
+## Strategy experiment
+
+The central falsifiable question is whether an unconstrained maximum-score controller discovers:
+
+```text
+capture -> accelerate -> one dominant intermediate compound pulse
+        -> high-speed viability-boundary ride -> terminal release
+```
+
+The app is an exploratory reduced-order simulator, not yet a calibrated digital twin. The nominal ±5° axial-angle range, twist coupling, friction, compliance, and target geometry should all be measured on a physical unit before quantitative optimality claims are made.
 
 ## Run locally
 
-Static site — any file server works:
-
 ```sh
 npx serve .
-# or: python3 -m http.server
+# or
+python3 -m http.server
 ```
+
+Then open the local URL in a browser. Three.js is loaded from a CDN through the import map in `index.html`.
 
 ## Deploy
 
-Deployed on Vercel as a static site (no build step). Three.js is loaded from CDN via an import map.
+The repository is configured as a static Vercel site with no build step. A push to `main` triggers the connected Vercel deployment.
 
 ## Structure
 
-```
-index.html      shell + HUD DOM
-css/style.css   mission-control instrument styling
-js/physics.js   reduced hybrid model (the paper, in code)
-js/scene.js     Three.js apparatus, deck, ball, release ring
-js/hud.js       telemetry, guards, phase portrait, predictor
-js/main.js      loop + input
-paper.pdf       the paper
+```text
+index.html          app shell, HUD, controls and model modal
+css/style.css       mission-control presentation
+js/physics.js       compliant hybrid opening–twist mechanics
+js/scene.js         Three.js apparatus and visible rod rotation
+js/hud.js           telemetry, guards and phase diagrams
+js/main.js          simulation loop and input bindings
+paper.pdf           complete paper
+paper.tex           LaTeX source
+README.md           model, attribution and usage guide
 ```

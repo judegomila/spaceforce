@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SPACEFORCE · Two-Rail Ball Game Simulator</title>
-<meta name="description" content="3D simulator of the Space Force / Shoot-the-Moon two-rail ball game, implementing the reduced hybrid model of 'Risk-Optimal Pulsed Control of a Variable-Separation Two-Rail Ball Game' (J. Gomila, 2026)." />
+<title>SPACEFORCE · Complete Two-Rail Ball Mechanics Simulator</title>
+<meta name="description" content="Interactive 3D simulator of the Space Force / Shoot-the-Moon two-rail ball game: opening, pulsing, rolling loss, compliance, hybrid release, independent rod twist, and score-risk control." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Michroma&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -24,15 +24,16 @@
 </head>
 <body>
 <canvas id="gl"></canvas>
-
-<div id="loading"><span>INITIALIZING CONSTRAINT MANIFOLD…</span></div>
+<div id="loading"><span>INITIALIZING MOVING CONSTRAINT MANIFOLD…</span></div>
 <div id="vignette"></div>
 
 <header id="masthead">
   <h1>SPACE<span>FORCE</span></h1>
-  <p>RISK-OPTIMAL PULSED CONTROL · VARIABLE-SEPARATION TWO-RAIL BALL GAME</p>
+  <p>COMPLIANT HYBRID MECHANICS · INDEPENDENT ROD TWIST · RISK-OPTIMAL CONTROL</p>
   <nav>
     <a href="paper.pdf" target="_blank" rel="noopener">PAPER ▸</a>
+    <a href="paper.tex" target="_blank" rel="noopener">LATEX ▸</a>
+    <button id="theory-open" type="button">MODEL ▸</button>
     <a href="https://github.com/judegomila/spaceforce" target="_blank" rel="noopener">SOURCE ▸</a>
   </nav>
 </header>
@@ -48,10 +49,15 @@
     <label>POSITION x</label><span class="val" id="r-x">—</span>
     <label>SPEED v</label><span class="val" id="r-v">—</span>
     <label>OPENING α</label><span class="val" id="r-alpha">—</span>
-    <label>LATERAL z</label><span class="val" id="r-z">—</span>
+    <label>RIG OFFSET z</label><span class="val" id="r-z">—</span>
     <label>SEPARATION η</label><span class="val" id="r-eta">—</span>
     <label>MARGIN δ</label><span class="val" id="r-delta">—</span>
-    <label>SPIN ω</label><span class="val" id="r-omega">—</span>
+    <label>ROLL SPIN ω<sub>⊥</sub></label><span class="val" id="r-omega">—</span>
+    <label>AXIAL SPIN ω<sub>x</sub></label><span class="val" id="r-omega-x">—</span>
+    <label>LEFT ROD φ<sub>−</sub></label><span class="val" id="r-phi-m">—</span>
+    <label>RIGHT ROD φ<sub>+</sub></label><span class="val" id="r-phi-p">—</span>
+    <label>COMMON φ<sub>c</sub></label><span class="val" id="r-phi-c">—</span>
+    <label>DIFF. φ<sub>Δ</sub></label><span class="val" id="r-phi-d">—</span>
     <label>EFF. MASS M/m</label><span class="val" id="r-mass">—</span>
     <label>DRIVE Γ</label><span class="val" id="r-gamma">—</span>
     <label>HIT PROB p<sub>hit</sub></label><span class="val" id="r-phit">—</span>
@@ -61,13 +67,15 @@
     <label>G<sub>geom</sub> SUPPORT</label><div class="bar"><div class="fill" id="g-geom"></div></div>
     <label>G<sub>fold</sub> COMPLIANCE</label><div class="bar"><div class="fill" id="g-fold"></div></div>
     <label>G<sub>μ</sub> TRACTION</label><div class="bar"><div class="fill" id="g-mu"></div></div>
+    <label>G<sub>φ</sub> TWIST RANGE</label><div class="bar"><div class="fill" id="g-phi"></div></div>
+    <label>G<sub>Δ</sub> TWIST COMPAT.</label><div class="bar"><div class="fill" id="g-twist"></div></div>
     <label>G<sub>N</sub> LOAD</label><div class="bar"><div class="fill" id="g-n"></div></div>
     <label>G<sub>ω</sub> SPIN</label><div class="bar"><div class="fill" id="g-omega"></div></div>
   </div>
 </section>
 
 <section class="panel" id="plots">
-  <h2>PHASE PORTRAIT <small>· capture corridor</small></h2>
+  <h2>PHASE PORTRAIT <small>· target capture corridor</small></h2>
   <canvas id="phase"></canvas>
   <h2>RELEASE PREDICTOR <small>· η(x) at current α</small></h2>
   <canvas id="strip"></canvas>
@@ -86,35 +94,77 @@
 </section>
 
 <section class="panel" id="controls">
-  <h2>CONTROL AUTHORITY</h2>
+  <h2>SEPARATION CONTROL</h2>
   <div class="btnrow">
     <button id="btn-close" class="hold">◀ CLOSE <kbd>←</kbd></button>
     <button id="btn-open" class="hold">OPEN ▶ <kbd>→</kbd></button>
-    <button id="btn-pulse" class="fire">PULSE <kbd>SPACE</kbd></button>
+    <button id="btn-pulse" class="fire">OPEN PULSE <kbd>SPACE</kbd></button>
   </div>
   <div class="btnrow" style="margin-top:6px">
-    <button id="btn-left" class="hold">◀ ARMS <kbd>A</kbd></button>
-    <button id="btn-right" class="hold">ARMS ▶ <kbd>D</kbd></button>
+    <button id="btn-left" class="hold">◀ RIG <kbd>A</kbd></button>
+    <button id="btn-right" class="hold">RIG ▶ <kbd>D</kbd></button>
   </div>
+
+  <h2>INDEPENDENT ROD ROTATION <small>· ±5° nominal</small></h2>
+  <div class="btnrow quad">
+    <button id="btn-l-neg" class="hold">L ↺ <kbd>Q</kbd></button>
+    <button id="btn-l-pos" class="hold">L ↻ <kbd>E</kbd></button>
+    <button id="btn-r-neg" class="hold">R ↺ <kbd>U</kbd></button>
+    <button id="btn-r-pos" class="hold">R ↻ <kbd>O</kbd></button>
+  </div>
+  <div class="twist-readout">
+    <span>φ<sub>c</sub> <b id="phi-c-v">0.00°</b></span>
+    <span>φ<sub>Δ</sub> <b id="phi-d-v">0.00°</b></span>
+    <span>s<sub>Δ</sub> <b id="slip-v">0.000</b></span>
+  </div>
+
   <div class="sliders">
-    <label>PULSE AMPL <b id="pulse-amp-v"></b></label>
+    <label>PULSE AMPLITUDE α <b id="pulse-amp-v"></b></label>
     <input type="range" id="pulse-amp" min="0.10" max="0.80" step="0.02" value="0.35" />
     <label>PULSE WIDTH τ <b id="pulse-tau-v"></b></label>
     <input type="range" id="pulse-tau" min="0.08" max="0.40" step="0.01" value="0.16" />
+    <label>TWIST AMPLITUDE φ <b id="twist-amp-v"></b></label>
+    <input type="range" id="twist-amp" min="0.5" max="5.0" step="0.1" value="3.0" />
+    <label>COMPOUND TWIST MODE</label>
+    <select id="twist-mode">
+      <option value="common">COMMON · AXIAL SPIN</option>
+      <option value="differential">DIFFERENTIAL · STEER</option>
+      <option value="phased">PHASED · PROPULSION/SLIP</option>
+    </select>
     <label>BOUNDARY RIDE η<sub>ref</sub> <b id="eta-ref-v"></b></label>
     <input type="range" id="eta-ref" min="0.78" max="0.935" step="0.005" value="0.86" />
   </div>
+  <div class="btnrow action-row">
+    <button id="btn-compound" class="fire">COMPOUND PULSE <kbd>C</kbd></button>
+  </div>
   <div class="btnrow small">
     <button id="ap-toggle" class="toggle">AUTOPILOT <kbd>T</kbd></button>
-    <button id="noise-toggle" class="toggle">TIMING NOISE <kbd>N</kbd></button>
+    <button id="noise-toggle" class="toggle">NOISE <kbd>N</kbd></button>
     <button id="btn-reset">RESET <kbd>R</kbd></button>
   </div>
 </section>
 
 <div id="banner"></div>
 
+<div id="theory-modal" aria-hidden="true">
+  <div class="theory-card" role="dialog" aria-modal="true" aria-labelledby="theory-title">
+    <button id="theory-close" class="modal-close" aria-label="Close">×</button>
+    <h2 id="theory-title">COMPLETE MECHANICS MODEL</h2>
+    <p><b>Rigid-body foundation.</b> Peng Xu, Richard E. Groff, and Timothy C. Burg derived and experimentally validated the nonlinear, underactuated, nonholonomic Shoot-the-Moon dynamics and model-based position control. This simulator treats that work as the rigid foundation.</p>
+    <p><b>Present extensions.</b> Rolling loss, traction guards, elastic rail compliance and its fold, hybrid contact loss, scoring flight, timing risk, target viability, independent axial rotation of both rods, and compound opening–twist control.</p>
+    <div class="equations">
+      <code>η = d / 2(R+r), δ = √(1−η²), M = m(1+κ/δ²)</code>
+      <code>ωₓ = −(r/R) φ̇c</code>
+      <code>η ż = r φ̇Δ</code>
+      <code>vˣtw = r φ̇ᵢ (tᵢ × nᵢ) · eₓ</code>
+    </div>
+    <p>A fixed axial angle does not change a perfectly circular homogeneous rod; its <em>rate</em> changes contact-surface velocity. Static angle can matter through ovality, eccentricity, texture, wear, or anisotropic coating. The ±5° range is a nominal apparatus observation and should be measured on a physical unit.</p>
+    <p class="modal-links"><a href="paper.pdf" target="_blank" rel="noopener">Read the complete paper</a> · <a href="https://open.clemson.edu/all_theses/1209/" target="_blank" rel="noopener">Xu thesis record</a></p>
+  </div>
+</div>
+
 <footer id="colophon">
-  Model: J. Gomila, <i>Risk-Optimal Pulsed Control of a Variable-Separation Two-Rail Ball Game</i> (2026) · Appendix B reduced hybrid dynamics
+  Rigid foundation: Xu–Groff–Burg · Extended compliant, twist, hybrid and risk model: J. Gomila (2026)
 </footer>
 
 <script type="module" src="js/main.js"></script>

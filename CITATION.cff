@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this simulator or model, please cite the paper and acknowledge the Xu–Groff–Burg rigid-body foundation."
+title: "Complete Mechanics and Risk-Optimal Control of a Variable-Separation Two-Rail Ball Game"
+type: software
+authors:
+  - family-names: "Gomila"
+    given-names: "Jude"
+year: 2026
+repository-code: "https://github.com/judegomila/spaceforce"
+url: "https://spaceforce-chi.vercel.app/"
+preferred-citation:
+  type: article
+  title: "Complete Mechanics and Risk-Optimal Control of a Variable-Separation Two-Rail Ball Game: Independent Rod Attitude, Axial Twist, Compliance, Hybrid Release, and Maximum-Score Strategy"
+  authors:
+    - family-names: "Gomila"
+      given-names: "Jude"
+  year: 2026
