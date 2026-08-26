@@ -115,6 +115,8 @@ npm test
 npm run check
 ```
 
+The same commands run automatically in GitHub Actions for every push and pull request.
+
 The regression suite checks:
 
 - exact head-to-tail dipole energy, field, and force scaling;
@@ -125,6 +127,7 @@ The regression suite checks:
 - state serialization;
 - safe-candidate construction;
 - A* routing through a constrained gap;
+- approach from an outside hand state to a legal interior release state;
 - rejection of disconnected route spaces.
 
 ## Scientific scope and limitations
