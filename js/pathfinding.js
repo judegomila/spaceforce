@@ -22,16 +22,19 @@ function heatColor(t) {
 export function computeRiskGrid(world, hand, options = {}) {
   const cols = options.cols ?? 58;
   const rows = options.rows ?? 44;
-  const pad = options.pad ?? 0.45;
-  const minX = -world.cord.rx - pad;
-  const maxX = world.cord.rx + pad;
-  const minY = -world.cord.ry - pad;
-  const maxY = world.cord.ry + pad;
+  const pad = options.pad ?? 1.15;
+  // A legal move begins outside the cord. Keep the approach domain large enough
+  // to contain the held stone, while reserving a separate mask for legal release.
+  const minX = Math.min(-world.cord.rx - pad, hand.pos.x - 0.25);
+  const maxX = Math.max(world.cord.rx + pad, hand.pos.x + 0.25);
+  const minY = Math.min(-world.cord.ry - pad, hand.pos.y - 0.25);
+  const maxY = Math.max(world.cord.ry + pad, hand.pos.y + 0.25);
   const dx = (maxX - minX) / (cols - 1);
   const dy = (maxY - minY) / (rows - 1);
   const values = new Float32Array(cols * rows);
   const clearance = new Float32Array(cols * rows);
   const valid = new Uint8Array(cols * rows);
+  const releaseValid = new Uint8Array(cols * rows);
   const stones = world.activeStones();
   const opts = world.magneticOpts();
   const base = world.computeBackgroundLoads(null).loads;
@@ -45,11 +48,7 @@ export function computeRiskGrid(world, hand, options = {}) {
       const idx = row * cols + col;
       const pos = { x: minX + col * dx, y: minY + row * dy };
       const margin = signedBoundaryMargin(pos, world.cordPolygon) - (hand.footprintRadius ?? 0.42);
-      if (margin < 0 || !pointInPolygon(pos, world.cordPolygon)) {
-        values[idx] = 3;
-        clearance[idx] = margin;
-        continue;
-      }
+      const legalRelease = margin >= 0 && pointInPolygon(pos, world.cordPolygon);
       let minGap = Infinity;
       let maxRisk = 0;
       let handForce = v(), handTorque = 0;
@@ -69,15 +68,16 @@ export function computeRiskGrid(world, hand, options = {}) {
       const handTip = world.tipUtilizationFor(handProxy, handForce);
       maxRisk = Math.max(maxRisk, handUtil.combined, handTip);
       if (minGap < 0.08) maxRisk = Math.max(maxRisk, 1.4 + Math.max(0, -minGap) * 4);
-      if (margin < 0.12) maxRisk = Math.max(maxRisk, 1.15 + (0.12 - margin) * 2);
+      if (legalRelease && margin < 0.12) maxRisk = Math.max(maxRisk, 1.15 + (0.12 - margin) * 2);
       values[idx] = maxRisk;
-      clearance[idx] = Math.min(minGap, margin);
+      clearance[idx] = legalRelease ? Math.min(minGap, margin) : minGap;
       valid[idx] = minGap > 0.015 ? 1 : 0;
-      if (valid[idx] && maxRisk < minValue) { minValue = maxRisk; bestIndex = idx; }
+      releaseValid[idx] = valid[idx] && legalRelease ? 1 : 0;
+      if (releaseValid[idx] && maxRisk < minValue) { minValue = maxRisk; bestIndex = idx; }
     }
   }
 
-  return { cols, rows, minX, maxX, minY, maxY, dx, dy, values, clearance, valid, minValue, bestIndex };
+  return { cols, rows, minX, maxX, minY, maxY, dx, dy, values, clearance, valid, releaseValid, minValue, bestIndex };
 }
 
 export function gridPoint(grid, index) {
@@ -94,8 +94,9 @@ export function nearestGridIndex(grid, pos) {
 
 export function chooseCandidate(grid, mode = 'safe') {
   let best = -1, score = Infinity;
+  const candidates = grid.releaseValid ?? grid.valid;
   for (let i = 0; i < grid.values.length; i += 1) {
-    if (!grid.valid[i]) continue;
+    if (!candidates[i]) continue;
     const risk = grid.values[i];
     const clear = grid.clearance[i];
     let s;
@@ -204,6 +205,7 @@ export function findRiskAwarePath(grid, startPos, goalPos, options = {}) {
   const raw = indices.map((i) => gridPoint(grid, i));
   if (raw.length < 3) return raw;
 
+  // Line-of-sight simplification on grid cells.
   const out = [raw[0]];
   let anchor = 0;
   for (let i = 2; i < raw.length; i += 1) {
