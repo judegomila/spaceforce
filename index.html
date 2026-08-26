@@ -1,122 +1,199 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SPACEFORCE · Two-Rail Ball Game Simulator</title>
-<meta name="description" content="3D simulator of the Space Force / Shoot-the-Moon two-rail ball game, implementing the reduced hybrid model of 'Risk-Optimal Pulsed Control of a Variable-Separation Two-Rail Ball Game' (J. Gomila, 2026)." />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Michroma&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="css/style.css" />
-<link rel="icon" href="favicon.svg" type="image/svg+xml" />
-<link rel="icon" href="favicon.ico" sizes="32x32" />
-<link rel="apple-touch-icon" href="apple-touch-icon.png" />
-<meta name="theme-color" content="#04060b" />
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
-  }
-}
-</script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KLUSTER LAB · Magnetic Stability Simulator</title>
+  <meta name="description" content="Interactive simulator for Kluster: friction-pinned dipoles, tipping, hybrid capture cascades, moving boundaries, and sequential strategy." />
+  <meta name="theme-color" content="#03070b" />
+  <meta property="og:title" content="KLUSTER LAB · Magnetic Stability Simulator" />
+  <meta property="og:description" content="Explore dipole fields, stick-slip instability, cascades, safe routes, and adversarial traps." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-<canvas id="gl"></canvas>
+  <canvas id="sim" aria-label="Interactive Kluster mechanics simulator"></canvas>
+  <div id="grain" aria-hidden="true"></div>
+  <div id="vignette" aria-hidden="true"></div>
 
-<div id="loading"><span>INITIALIZING CONSTRAINT MANIFOLD…</span></div>
-<div id="vignette"></div>
-
-<header id="masthead">
-  <h1>SPACE<span>FORCE</span></h1>
-  <p>RISK-OPTIMAL PULSED CONTROL · VARIABLE-SEPARATION TWO-RAIL BALL GAME</p>
-  <nav>
-    <a href="paper.pdf" target="_blank" rel="noopener">PAPER ▸</a>
-    <a href="https://github.com/judegomila/spaceforce" target="_blank" rel="noopener">SOURCE ▸</a>
-  </nav>
-</header>
-
-<div id="mode-wrap">
-  <span id="mode" class="mode ok">M1 · ROLLING</span>
-  <span id="cause"></span>
-</div>
-
-<section class="panel" id="telemetry">
-  <h2>TELEMETRY</h2>
-  <div class="grid">
-    <label>POSITION x</label><span class="val" id="r-x">—</span>
-    <label>SPEED v</label><span class="val" id="r-v">—</span>
-    <label>OPENING α</label><span class="val" id="r-alpha">—</span>
-    <label>LATERAL z</label><span class="val" id="r-z">—</span>
-    <label>SEPARATION η</label><span class="val" id="r-eta">—</span>
-    <label>MARGIN δ</label><span class="val" id="r-delta">—</span>
-    <label>SPIN ω</label><span class="val" id="r-omega">—</span>
-    <label>EFF. MASS M/m</label><span class="val" id="r-mass">—</span>
-    <label>DRIVE Γ</label><span class="val" id="r-gamma">—</span>
-    <label>HIT PROB p<sub>hit</sub></label><span class="val" id="r-phit">—</span>
+  <div id="loading" role="status">
+    <div class="loader-ring"></div>
+    <span>INITIALIZING HYBRID CONTACT SYSTEM…</span>
   </div>
-  <h2>ADMISSIBILITY GUARDS</h2>
-  <div class="guards">
-    <label>G<sub>geom</sub> SUPPORT</label><div class="bar"><div class="fill" id="g-geom"></div></div>
-    <label>G<sub>fold</sub> COMPLIANCE</label><div class="bar"><div class="fill" id="g-fold"></div></div>
-    <label>G<sub>μ</sub> TRACTION</label><div class="bar"><div class="fill" id="g-mu"></div></div>
-    <label>G<sub>N</sub> LOAD</label><div class="bar"><div class="fill" id="g-n"></div></div>
-    <label>G<sub>ω</sub> SPIN</label><div class="bar"><div class="fill" id="g-omega"></div></div>
-  </div>
-</section>
 
-<section class="panel" id="plots">
-  <h2>PHASE PORTRAIT <small>· capture corridor</small></h2>
-  <canvas id="phase"></canvas>
-  <h2>RELEASE PREDICTOR <small>· η(x) at current α</small></h2>
-  <canvas id="strip"></canvas>
-</section>
+  <header id="masthead">
+    <div class="identity">
+      <h1>KLUSTER<span>LAB</span></h1>
+      <p>FRICTION-PINNED DIPOLES · HYBRID INSTABILITY · SEQUENTIAL STRATEGY</p>
+    </div>
+    <nav aria-label="Project resources">
+      <a href="paper.tex" target="_blank" rel="noopener">PAPER <b>↗</b></a>
+      <a id="source-link" href="https://github.com/judegomila/spaceforce/tree/kluster-lab" target="_blank" rel="noopener">SOURCE <b>↗</b></a>
+      <button class="nav-button" id="science-open">MODEL</button>
+    </nav>
+  </header>
 
-<section class="panel" id="mission">
-  <h2>MISSION</h2>
-  <div class="scores">
-    <div><label>SCORE</label><em id="score">—</em></div>
-    <div><label>BEST</label><em id="best">0</em></div>
-    <div><label>ATT</label><em id="attempts">00</em></div>
+  <div id="status-ribbon">
+    <span id="status-mode" class="status-chip safe">PINNED</span>
+    <span id="status-phase">LAB · AIMING</span>
+    <span id="status-note">Move the held stone through the field. Release with Space.</span>
   </div>
-  <h2>TARGET</h2>
-  <div id="targets"></div>
-  <div id="log"></div>
-</section>
 
-<section class="panel" id="controls">
-  <h2>CONTROL AUTHORITY</h2>
-  <div class="btnrow">
-    <button id="btn-close" class="hold">◀ CLOSE <kbd>←</kbd></button>
-    <button id="btn-open" class="hold">OPEN ▶ <kbd>→</kbd></button>
-    <button id="btn-pulse" class="fire">PULSE <kbd>SPACE</kbd></button>
-  </div>
-  <div class="btnrow" style="margin-top:6px">
-    <button id="btn-left" class="hold">◀ ARMS <kbd>A</kbd></button>
-    <button id="btn-right" class="hold">ARMS ▶ <kbd>D</kbd></button>
-  </div>
-  <div class="sliders">
-    <label>PULSE AMPL <b id="pulse-amp-v"></b></label>
-    <input type="range" id="pulse-amp" min="0.10" max="0.80" step="0.02" value="0.35" />
-    <label>PULSE WIDTH τ <b id="pulse-tau-v"></b></label>
-    <input type="range" id="pulse-tau" min="0.08" max="0.40" step="0.01" value="0.16" />
-    <label>BOUNDARY RIDE η<sub>ref</sub> <b id="eta-ref-v"></b></label>
-    <input type="range" id="eta-ref" min="0.78" max="0.935" step="0.005" value="0.86" />
-  </div>
-  <div class="btnrow small">
-    <button id="ap-toggle" class="toggle">AUTOPILOT <kbd>T</kbd></button>
-    <button id="noise-toggle" class="toggle">TIMING NOISE <kbd>N</kbd></button>
-    <button id="btn-reset">RESET <kbd>R</kbd></button>
-  </div>
-</section>
+  <aside class="panel left-panel" id="telemetry-panel">
+    <div class="panel-title"><span>STATE ESTIMATE</span><small>dimensionless</small></div>
+    <div class="metric-grid">
+      <label>TIME</label><output id="m-time">0.000</output>
+      <label>STONES</label><output id="m-stones">0</output>
+      <label>JOINTS</label><output id="m-joints">0</output>
+      <label>MAX UTIL χ</label><output id="m-util">0.000</output>
+      <label>HAND UTIL χ<sub>h</sub></label><output id="m-hand-util">0.000</output>
+      <label>MIN GAP</label><output id="m-gap">∞</output>
+      <label>BOUNDARY</label><output id="m-boundary">∞</output>
+      <label>POTENTIAL U</label><output id="m-potential">0.000</output>
+      <label>KINETIC K</label><output id="m-kinetic">0.000</output>
+      <label>DIPOLE θ</label><output id="m-angle">0.0°</output>
+    </div>
 
-<div id="banner"></div>
+    <div class="panel-title sub"><span>STABILITY GUARDS</span><small>1.0 = threshold</small></div>
+    <div class="guard-stack">
+      <div class="guard-row"><label>BOARD χ</label><div class="bar"><i id="g-board"></i><em></em></div><output id="gv-board">0.00</output></div>
+      <div class="guard-row"><label>HAND χ</label><div class="bar"><i id="g-hand"></i><em></em></div><output id="gv-hand">0.00</output></div>
+      <div class="guard-row"><label>FORCE</label><div class="bar"><i id="g-force"></i><em></em></div><output id="gv-force">0.00</output></div>
+      <div class="guard-row"><label>TORQUE</label><div class="bar"><i id="g-torque"></i><em></em></div><output id="gv-torque">0.00</output></div>
+      <div class="guard-row"><label>TIP</label><div class="bar"><i id="g-tip"></i><em></em></div><output id="gv-tip">0.00</output></div>
+      <div class="guard-row inverse"><label>CLEARANCE</label><div class="bar"><i id="g-clear"></i><em></em></div><output id="gv-clear">∞</output></div>
+    </div>
 
-<footer id="colophon">
-  Model: J. Gomila, <i>Risk-Optimal Pulsed Control of a Variable-Separation Two-Rail Ball Game</i> (2026) · Appendix B reduced hybrid dynamics
-</footer>
+    <div class="panel-title sub"><span>ENERGY / LOAD TRACE</span><small>recent history</small></div>
+    <canvas id="trace" width="560" height="170" aria-label="Recent energy and stability trace"></canvas>
+  </aside>
 
-<script type="module" src="js/main.js"></script>
+  <aside class="panel right-panel" id="strategy-panel">
+    <div class="panel-title"><span>EXPERIMENT</span><small id="mode-label">LAB MODE</small></div>
+    <div class="segmented" id="mode-tabs" role="group" aria-label="Simulator mode">
+      <button data-mode="lab" class="active">LAB</button>
+      <button data-mode="game">GAME</button>
+    </div>
+
+    <div id="game-box">
+      <div class="game-head">
+        <div><small>ACTIVE PLAYER</small><strong id="active-player">P1</strong></div>
+        <div><small>TURN</small><strong id="turn-number">01</strong></div>
+        <div><small>PHASE</small><strong id="turn-phase">AIM</strong></div>
+      </div>
+      <div id="inventories" class="inventories"></div>
+      <div class="game-config">
+        <label>PLAYERS
+          <select id="players-select">
+            <option value="1">1</option>
+            <option value="2" selected>2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </label>
+        <button id="new-game">NEW GAME</button>
+      </div>
+    </div>
+
+    <div class="panel-title sub"><span>RISK FIELD</span><small>predicted insertion hazard</small></div>
+    <div class="risk-wrap">
+      <canvas id="risk-map" width="580" height="390" aria-label="Risk field and planned route"></canvas>
+      <div class="risk-legend"><span>ROBUST</span><i></i><span>CRITICAL</span></div>
+    </div>
+    <div class="button-grid planner-buttons">
+      <button id="route-safe">SAFE ROUTE <kbd>G</kbd></button>
+      <button id="route-trap">TRAP ROUTE <kbd>H</kbd></button>
+      <button id="route-run" class="accent">RUN ROUTE <kbd>V</kbd></button>
+      <button id="route-clear">CLEAR</button>
+    </div>
+
+    <div class="panel-title sub"><span>EVENT STREAM</span><small>latest transitions</small></div>
+    <div id="event-log" role="log" aria-live="polite"></div>
+  </aside>
+
+  <section class="panel control-panel" id="controls-panel">
+    <div class="control-primary">
+      <button id="release" class="release">RELEASE <kbd>SPACE</kbd></button>
+      <button id="rotate-left">↺ ROTATE <kbd>Q</kbd></button>
+      <button id="rotate-right">ROTATE ↻ <kbd>E</kbd></button>
+      <button id="posture">POSTURE: <b>FLAT</b> <kbd>P</kbd></button>
+      <button id="pause">PAUSE <kbd>T</kbd></button>
+      <button id="reset">RESET <kbd>R</kbd></button>
+    </div>
+
+    <details id="advanced-controls">
+      <summary>MODEL &amp; BOUNDARY CONTROLS</summary>
+      <div class="control-columns">
+        <fieldset>
+          <legend>PHYSICS</legend>
+          <label>MAGNETIC STRENGTH <output id="v-magnet">0.072</output><input id="magnet" type="range" min="0.025" max="0.125" step="0.001" value="0.072" /></label>
+          <label>STATIC FRICTION μ<sub>s</sub> <output id="v-friction">0.42</output><input id="friction" type="range" min="0.18" max="0.80" step="0.01" value="0.42" /></label>
+          <label>DAMPING <output id="v-damping">0.42</output><input id="damping" type="range" min="0.05" max="1.20" step="0.01" value="0.42" /></label>
+          <label>TIME SCALE <output id="v-time-scale">1.00×</output><input id="time-scale" type="range" min="0.15" max="2.50" step="0.05" value="1" /></label>
+        </fieldset>
+        <fieldset>
+          <legend>CORD Γ</legend>
+          <label>WIDTH r<sub>x</sub> <output id="v-cord-x">4.20</output><input id="cord-x" type="range" min="3.0" max="5.4" step="0.02" value="4.2" /></label>
+          <label>HEIGHT r<sub>y</sub> <output id="v-cord-y">3.05</output><input id="cord-y" type="range" min="2.1" max="4.1" step="0.02" value="3.05" /></label>
+          <label>PINCH <output id="v-pinch">0.08</output><input id="pinch" type="range" min="-0.15" max="0.32" step="0.01" value="0.08" /></label>
+          <label>ROTATION <output id="v-cord-rotation">0°</output><input id="cord-rotation" type="range" min="-45" max="45" step="1" value="0" /></label>
+        </fieldset>
+        <fieldset>
+          <legend>VIEW / SCENARIO</legend>
+          <label>PRESET
+            <select id="preset">
+              <option value="empty">Empty board</option>
+              <option value="midgame" selected>Seeded midgame</option>
+              <option value="saddle">Side-by-side saddle</option>
+              <option value="rotation">Rotation before slide</option>
+              <option value="triangle">Frustrated triangle</option>
+              <option value="cascade">Hybrid cascade</option>
+              <option value="tripwire">Upright tripwire</option>
+              <option value="trap">Near-critical trap</option>
+            </select>
+          </label>
+          <div class="toggle-grid">
+            <label><input id="show-field" type="checkbox" checked /> FIELD</label>
+            <label><input id="show-forces" type="checkbox" checked /> FORCES</label>
+            <label><input id="show-labels" type="checkbox" checked /> LABELS</label>
+            <label><input id="show-risk" type="checkbox" checked /> HALOS</label>
+          </div>
+          <div class="button-grid compact">
+            <button id="export-state">EXPORT</button>
+            <button id="import-state">IMPORT</button>
+            <input id="import-file" type="file" accept="application/json" hidden />
+          </div>
+        </fieldset>
+      </div>
+    </details>
+    <p class="key-help">POINTER / TOUCH: move held stone · W A S D or arrows: translate · wheel / Q E: rotate · Space: release · G/H: plan · V: execute route</p>
+  </section>
+
+  <div id="banner" role="alert" aria-live="assertive"></div>
+
+  <dialog id="science-modal">
+    <form method="dialog"><button class="modal-close" aria-label="Close model notes">×</button></form>
+    <div class="modal-content">
+      <p class="eyebrow">MODEL HIERARCHY D/H</p>
+      <h2>What the simulator computes</h2>
+      <p>Each stone is a planar rigid body carrying a body-fixed dipole moment. The far-field pair interaction is</p>
+      <div class="equation">U<sub>ij</sub> = C r<sup>−3</sup>[m<sub>i</sub>·m<sub>j</sub> − 3(m<sub>i</sub>·r̂)(m<sub>j</sub>·r̂)].</div>
+      <p>Force scales as r<sup>−4</sup>, torque as r<sup>−3</sup>. Motion begins when the reduced force–torque wrench reaches the Coulomb-like static limit:</p>
+      <div class="equation">χ = √[(‖F‖/μ<sub>s</sub>N)² + (τ/μ<sub>s</sub>Nρ)²] ≥ 1.</div>
+      <p>Edge-supported stones have a separate tipping guard. Contact is compliant; sufficiently attractive, low-energy contacts become capture joints. Those discrete graph changes make the dynamics hybrid and allow cascades.</p>
+      <h3>Interpretation</h3>
+      <p>The app is a dimensionless, reduced explanatory simulator. It implements the theoretical architecture of the paper but is not yet calibrated to a particular manufactured set. Near-contact forces are softened and capped because the point-dipole approximation is not quantitatively valid there.</p>
+      <h3>Risk planner</h3>
+      <p>The heat map evaluates the maximum predicted friction/tipping utilization produced by placing the held dipole at each candidate point. “Safe” minimizes predicted hazard and rewards clearance. “Trap” searches below the instability threshold for high-susceptibility placements.</p>
+      <div class="modal-links">
+        <a href="paper.tex" target="_blank" rel="noopener">READ THE PAPER ↗</a>
+        <a href="paper.tex" target="_blank" rel="noopener">LATEX SOURCE ↗</a>
+      </div>
+    </div>
+  </dialog>
+
+  <footer id="colophon">J. GOMILA · <i>A Mathematical Framework for Kluster</i> · REDUCED DIMENSIONLESS MODEL · 2026</footer>
+
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
