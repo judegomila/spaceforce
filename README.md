@@ -102,11 +102,11 @@ js/
   presets.js       canonical experiments and deterministic midgame generator
   renderer.js      high-DPI scientific canvas renderer
   ui.js            telemetry, controls, plots, logs, import/export
-paper.tex           release-manuscript LaTeX source
 tests/              mathematical and planner regression tests
+.github/workflows/  automated syntax and regression verification
 ```
 
-The app uses a fixed-step physics clock and a decoupled render loop. State snapshots can be exported and re-imported as JSON.
+The app uses a fixed-step physics clock and a decoupled render loop. State snapshots can be exported and re-imported as JSON. The separately delivered standalone source archive also includes the complete paper PDF, LaTeX, bibliography, figures, and figure-generation code.
 
 ## Verification
 
